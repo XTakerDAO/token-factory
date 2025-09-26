@@ -1,0 +1,76 @@
+{
+  "name": "token-creator-dapp",
+  "version": "1.0.0",
+  "description": "A comprehensive decentralized application for creating and managing ERC20 tokens with advanced features across multiple blockchain networks",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:contracts && npm run install:frontend",
+    "install:contracts": "cd contracts && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "dev": "concurrently \"npm run dev:contracts\" \"npm run dev:frontend\"",
+    "dev:contracts": "cd contracts && anvil",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:contracts && npm run build:frontend",
+    "build:contracts": "cd contracts && forge build",
+    "build:frontend": "cd frontend && npm run build",
+    "test": "npm run test:contracts && npm run test:frontend",
+    "test:contracts": "cd contracts && forge test",
+    "test:frontend": "cd frontend && npm run test",
+    "test:coverage": "npm run test:contracts:coverage && npm run test:frontend:coverage",
+    "test:contracts:coverage": "cd contracts && forge coverage",
+    "test:frontend:coverage": "cd frontend && npm run test:coverage",
+    "test:e2e": "cd frontend && npm run test:e2e",
+    "lint": "npm run lint:contracts && npm run lint:frontend",
+    "lint:contracts": "cd contracts && forge fmt --check",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:fix": "npm run lint:contracts:fix && npm run lint:frontend:fix",
+    "lint:contracts:fix": "cd contracts && forge fmt",
+    "lint:frontend:fix": "cd frontend && npm run lint:fix",
+    "deploy:local": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545",
+    "deploy:sepolia": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url $SEPOLIA_RPC_URL --verify",
+    "deploy:bsc-testnet": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url $BSC_TESTNET_RPC_URL --verify",
+    "verify:contracts": "cd contracts && npm run verify",
+    "analyze:gas": "cd contracts && ./scripts/gas-benchmark.sh",
+    "analyze:bundle": "cd frontend && ./scripts/bundle-analyzer.sh",
+    "clean": "npm run clean:contracts && npm run clean:frontend",
+    "clean:contracts": "cd contracts && forge clean",
+    "clean:frontend": "cd frontend && rm -rf .next node_modules/.cache",
+    "prepare": "husky install || true"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/token-factory.git"
+  },
+  "keywords": [
+    "ethereum",
+    "bsc",
+    "xsc",
+    "erc20",
+    "token",
+    "factory",
+    "defi",
+    "web3",
+    "smart-contracts",
+    "nextjs",
+    "typescript",
+    "foundry"
+  ],
+  "author": "Token Factory Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/your-org/token-factory/issues"
+  },
+  "homepage": "https://github.com/your-org/token-factory#readme",
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "husky": "^8.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

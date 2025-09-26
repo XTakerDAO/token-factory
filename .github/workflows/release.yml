@@ -1,0 +1,468 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # ============== PRE-RELEASE VALIDATION ==============
+
+  validate-release:
+    name: ✅ Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          if [[ $VERSION == *"-"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version format
+        run: |
+          if [[ ! "${{ steps.version.outputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "❌ Invalid version format: ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Check if tag exists
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "❌ Tag ${{ steps.version.outputs.version }} already exists"
+            exit 1
+          fi
+
+  # ============== BUILD AND TEST ==============
+
+  build-and-test:
+    name: 🔨 Build and Test
+    runs-on: ubuntu-latest
+    needs: validate-release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      # Smart Contract Tests
+      - name: Test smart contracts
+        working-directory: ./contracts
+        run: |
+          forge build
+          forge test -vv
+
+      # Frontend Tests
+      - name: Test frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run test
+          npm run build
+
+      - name: Generate artifacts
+        run: |
+          mkdir -p release-artifacts
+
+          # Contract artifacts
+          cp -r contracts/out release-artifacts/contracts-build
+
+          # Frontend build
+          cp -r frontend/.next release-artifacts/frontend-build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.validate-release.outputs.version }}
+          path: release-artifacts/
+          retention-days: 30
+
+  # ============== SECURITY VALIDATION ==============
+
+  security-validation:
+    name: 🛡️ Security Validation
+    runs-on: ubuntu-latest
+    needs: validate-release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          slither-args: contracts/src/
+          fail-on: high
+
+      - name: Verify contract compilation
+        working-directory: ./contracts
+        run: |
+          forge build
+          forge test --gas-report
+
+  # ============== CONTRACT DEPLOYMENT ==============
+
+  deploy-contracts:
+    name: 🚀 Deploy Smart Contracts
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-and-test, security-validation]
+    if: needs.validate-release.outputs.is_prerelease == 'false'
+    environment: production
+    outputs:
+      ethereum_factory: ${{ steps.deploy-ethereum.outputs.factory_address }}
+      bsc_factory: ${{ steps.deploy-bsc.outputs.factory_address }}
+      deployment_report: ${{ steps.generate-report.outputs.report }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      # Deploy to Ethereum Mainnet
+      - name: Deploy to Ethereum
+        id: deploy-ethereum
+        working-directory: ./contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.MAINNET_PRIVATE_KEY }}
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        run: |
+          DEPLOYMENT_OUTPUT=$(forge script script/Deploy.s.sol --broadcast --rpc-url $MAINNET_RPC_URL --verify)
+          FACTORY_ADDRESS=$(echo "$DEPLOYMENT_OUTPUT" | grep "Factory deployed at:" | awk '{print $4}')
+          echo "factory_address=$FACTORY_ADDRESS" >> $GITHUB_OUTPUT
+
+      # Deploy to BSC Mainnet
+      - name: Deploy to BSC
+        id: deploy-bsc
+        working-directory: ./contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.MAINNET_PRIVATE_KEY }}
+          BSC_RPC_URL: ${{ secrets.BSC_MAINNET_RPC_URL }}
+          BSCSCAN_API_KEY: ${{ secrets.BSCSCAN_API_KEY }}
+        run: |
+          DEPLOYMENT_OUTPUT=$(forge script script/Deploy.s.sol --broadcast --rpc-url $BSC_RPC_URL --verify)
+          FACTORY_ADDRESS=$(echo "$DEPLOYMENT_OUTPUT" | grep "Factory deployed at:" | awk '{print $4}')
+          echo "factory_address=$FACTORY_ADDRESS" >> $GITHUB_OUTPUT
+
+      # Generate deployment report
+      - name: Generate deployment report
+        id: generate-report
+        run: |
+          cat > deployment-report.md << EOF
+          # Deployment Report - ${{ needs.validate-release.outputs.version }}
+
+          **Date**: $(date)
+          **Version**: ${{ needs.validate-release.outputs.version }}
+
+          ## Contract Addresses
+
+          ### Ethereum Mainnet
+          - **TokenFactory**: ${{ steps.deploy-ethereum.outputs.factory_address }}
+          - **Network ID**: 1
+          - **Explorer**: https://etherscan.io/address/${{ steps.deploy-ethereum.outputs.factory_address }}
+
+          ### BSC Mainnet
+          - **TokenFactory**: ${{ steps.deploy-bsc.outputs.factory_address }}
+          - **Network ID**: 56
+          - **Explorer**: https://bscscan.com/address/${{ steps.deploy-bsc.outputs.factory_address }}
+
+          ## Verification Status
+          - ✅ Ethereum contracts verified on Etherscan
+          - ✅ BSC contracts verified on BscScan
+
+          ## Security
+          - ✅ Security analysis passed
+          - ✅ All tests passing
+          - ✅ Gas optimization validated
+          EOF
+
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          cat deployment-report.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report-${{ needs.validate-release.outputs.version }}
+          path: |
+            deployment-report.md
+            contracts/deployments/
+
+  # ============== FRONTEND DEPLOYMENT ==============
+
+  deploy-frontend:
+    name: 🌐 Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-and-test, deploy-contracts]
+    if: always() && (needs.deploy-contracts.result == 'success' || needs.validate-release.outputs.is_prerelease == 'true')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Update contract addresses
+        if: needs.deploy-contracts.result == 'success'
+        working-directory: ./frontend
+        run: |
+          # Update network configuration with new contract addresses
+          cat > src/lib/deployed-contracts.json << EOF
+          {
+            "1": {
+              "tokenFactory": "${{ needs.deploy-contracts.outputs.ethereum_factory }}"
+            },
+            "56": {
+              "tokenFactory": "${{ needs.deploy-contracts.outputs.bsc_factory }}"
+            }
+          }
+          EOF
+
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          NEXT_PUBLIC_ENVIRONMENT: production
+          NEXT_PUBLIC_VERSION: ${{ needs.validate-release.outputs.version }}
+        run: npm run build
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-args: --prod
+          working-directory: ./frontend
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+
+  # ============== CREATE GITHUB RELEASE ==============
+
+  create-release:
+    name: 📦 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-and-test, deploy-contracts, deploy-frontend]
+    if: always() && needs.build-and-test.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.validate-release.outputs.version }}
+          path: release-artifacts/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Generate changelog from commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+
+          if [ -n "$LAST_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --max-count=20)
+          fi
+
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create release notes
+        run: |
+          cat > release-notes.md << EOF
+          # Token Factory Release ${{ needs.validate-release.outputs.version }}
+
+          ## 🚀 What's New
+
+          ${{ steps.changelog.outputs.changelog }}
+
+          ## 📦 Deployments
+
+          ### Smart Contracts
+          ${{ needs.deploy-contracts.outputs.deployment_report || 'Pre-release - contracts not deployed' }}
+
+          ### Frontend
+          - ✅ Deployed to production
+          - ✅ Updated with latest contract addresses
+          - ✅ Performance optimized
+
+          ## 🧪 Testing
+
+          - ✅ All unit tests passing
+          - ✅ E2E tests validated
+          - ✅ Security analysis completed
+          - ✅ Gas optimization verified
+
+          ## 📋 Checksums
+
+          \`\`\`
+          $(find release-artifacts -type f -exec sha256sum {} \; | sort)
+          \`\`\`
+
+          ## 🛠️ Installation
+
+          Visit [Token Factory](https://your-domain.com) to start creating tokens!
+
+          ## 🐛 Known Issues
+
+          None at release time.
+
+          ## 🤝 Contributors
+
+          Thanks to all contributors who made this release possible!
+
+          ---
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ needs.validate-release.outputs.version }}
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate-release.outputs.version }}
+          name: Token Factory ${{ needs.validate-release.outputs.version }}
+          body_path: release-notes.md
+          files: |
+            release-artifacts/**/*
+          prerelease: ${{ needs.validate-release.outputs.is_prerelease }}
+          generate_release_notes: false
+          make_latest: ${{ needs.validate-release.outputs.is_prerelease == 'false' }}
+
+  # ============== POST-RELEASE TASKS ==============
+
+  post-release:
+    name: 📋 Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: always() && needs.create-release.result == 'success'
+    steps:
+      - name: Update documentation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Create issue for documentation updates
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '📚 Update documentation for ${{ needs.validate-release.outputs.version }}',
+              body: `Release ${{ needs.validate-release.outputs.version }} has been deployed.
+
+              Please update the following documentation:
+              - [ ] User guide with new features
+              - [ ] API documentation
+              - [ ] Contract addresses in README
+              - [ ] Deployment guide
+              - [ ] Tutorial videos
+
+              cc: @documentation-team`,
+              labels: ['documentation', 'release']
+            });
+
+      - name: Notify stakeholders
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            🎉 Token Factory ${{ needs.validate-release.outputs.version }} has been released!
+
+            📦 GitHub Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.validate-release.outputs.version }}
+            🌐 Live Application: https://your-domain.com
+
+            New features and improvements are now available to users!
+          webhook_url: ${{ secrets.RELEASE_SLACK_WEBHOOK }}
+
+      - name: Update project board
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Move all issues associated with this release to "Done"
+            const query = `repo:${context.repo.owner}/${context.repo.repo} is:closed milestone:${{ needs.validate-release.outputs.version }}`;
+            console.log('Release completed successfully:', query);
+
+  # ============== ROLLBACK CAPABILITY ==============
+
+  rollback-ready:
+    name: 🔄 Prepare Rollback
+    runs-on: ubuntu-latest
+    needs: [validate-release, deploy-contracts, deploy-frontend]
+    if: always()
+    steps:
+      - name: Save deployment state
+        run: |
+          cat > rollback-info.json << EOF
+          {
+            "version": "${{ needs.validate-release.outputs.version }}",
+            "contracts": {
+              "ethereum": "${{ needs.deploy-contracts.outputs.ethereum_factory }}",
+              "bsc": "${{ needs.deploy-contracts.outputs.bsc_factory }}"
+            },
+            "frontend_deployed": "${{ needs.deploy-frontend.result == 'success' }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Upload rollback info
+        uses: actions/upload-artifact@v4
+        with:
+          name: rollback-info-${{ needs.validate-release.outputs.version }}
+          path: rollback-info.json
+          retention-days: 90

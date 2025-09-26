@@ -1,0 +1,33 @@
+{
+  "filter_paths": [
+    "lib/",
+    "test/",
+    "script/",
+    "node_modules/"
+  ],
+  "exclude_informational": true,
+  "exclude_low": false,
+  "exclude_medium": false,
+  "exclude_high": false,
+  "exclude_dependencies": true,
+  "printers": [
+    "human-summary"
+  ],
+  "detectors_to_exclude": [
+    "solc-version",
+    "pragma",
+    "naming-convention"
+  ],
+  "detectors_to_include": [
+    "reentrancy-eth",
+    "reentrancy-no-eth",
+    "uninitialized-state",
+    "arbitrary-send",
+    "controlled-delegatecall",
+    "weak-prng",
+    "suicidal",
+    "unprotected-upgrade",
+    "incorrect-equality",
+    "locked-ether"
+  ]
+}

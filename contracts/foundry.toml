@@ -1,0 +1,50 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.21"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+verbosity = 2
+
+# Multi-chain deployment settings
+[profile.mainnet]
+solc_version = "0.8.21"
+optimizer = true
+optimizer_runs = 1000
+via_ir = true
+
+[profile.testnet]
+solc_version = "0.8.21"
+optimizer = true
+optimizer_runs = 200
+
+# XSC Network compatibility (pre-Shanghai EVM)
+[profile.xsc]
+solc_version = "0.8.19"  # Pre-Shanghai compatible
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC_URL}"
+goerli = "${GOERLI_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+bsc = "${BSC_RPC_URL}"
+bsc_testnet = "${BSC_TESTNET_RPC_URL}"
+xsc = "${XSC_RPC_URL}"
+xsc_testnet = "${XSC_TESTNET_RPC_URL}"
+anvil = "http://localhost:8545"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+goerli = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+bsc = { key = "${BSCSCAN_API_KEY}" }
+bsc_testnet = { key = "${BSCSCAN_API_KEY}" }
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true

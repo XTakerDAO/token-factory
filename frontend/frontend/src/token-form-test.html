@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Form Advanced Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(214.3 31.8% 91.4%)",
+                        input: "hsl(214.3 31.8% 91.4%)",
+                        ring: "hsl(221.2 83.2% 53.3%)",
+                        background: "hsl(0 0% 100%)",
+                        foreground: "hsl(222.2 84% 4.9%)",
+                        primary: {
+                            DEFAULT: "hsl(221.2 83.2% 53.3%)",
+                            foreground: "hsl(210 40% 98%)",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(210 40% 96%)",
+                            foreground: "hsl(222.2 84% 4.9%)",
+                        },
+                        destructive: {
+                            DEFAULT: "hsl(0 84.2% 60.2%)",
+                            foreground: "hsl(210 40% 98%)",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(210 40% 96%)",
+                            foreground: "hsl(215.4 16.3% 46.9%)",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(210 40% 96%)",
+                            foreground: "hsl(222.2 84% 4.9%)",
+                        },
+                        card: {
+                            DEFAULT: "hsl(0 0% 100%)",
+                            foreground: "hsl(222.2 84% 4.9%)",
+                        },
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 
+            0%, 100% { opacity: 1; } 
+            50% { opacity: .5; } 
+        }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 
+            from { transform: rotate(0deg); } 
+            to { transform: rotate(360deg); } 
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground">
+    <div id="root" class="container mx-auto p-8 space-y-8">
+        <h1 class="text-3xl font-bold mb-8">Token Form Advanced Test</h1>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback } = React;
+
+        // Mock form state management
+        const useFormState = () => {
+            const [formData, setFormData] = useState({
+                name: '',
+                symbol: '',
+                totalSupply: '1000000000000000000000000', // 1M with 18 decimals
+                decimals: 18,
+                networkId: 1
+            });
+
+            const [validationErrors, setValidationErrors] = useState({});
+            const [isValidating, setIsValidating] = useState(false);
+
+            const updateField = useCallback((field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+                
+                // Basic validation
+                const errors = { ...validationErrors };
+                delete errors[field];
+                
+                if (field === 'name') {
+                    if (!value || value.length < 2) {
+                        errors.name = ['Token name must be at least 2 characters'];
+                    } else if (value.length > 50) {
+                        errors.name = ['Token name must be less than 50 characters'];
+                    }
+                }
+                
+                if (field === 'symbol') {
+                    if (!value || value.length < 2) {
+                        errors.symbol = ['Token symbol must be at least 2 characters'];
+                    } else if (value.length > 10) {
+                        errors.symbol = ['Token symbol must be less than 10 characters'];
+                    }
+                }
+
+                if (field === 'totalSupply') {
+                    if (!value || value === '0') {
+                        errors.totalSupply = ['Total supply must be greater than 0'];
+                    }
+                }
+
+                if (field === 'decimals') {
+                    if (value < 0 || value > 18) {
+                        errors.decimals = ['Decimals must be between 0 and 18'];
+                    }
+                }
+
+                setValidationErrors(errors);
+            }, [validationErrors]);
+
+            const isValid = Object.keys(validationErrors).length === 0 && 
+                           formData.name && formData.symbol && formData.totalSupply;
+
+            return {
+                formData,
+                validationErrors,
+                isValidating,
+                isValid,
+                updateField,
+                setIsValidating
+            };
+        };
+
+        // Network data
+        const NETWORKS = {
+            1: { name: 'Ethereum', symbol: 'ETH' },
+            56: { name: 'BSC', symbol: 'BNB' },
+            520: { name: 'XSC', symbol: 'XSC' }
+        };
+
+        // UI Components
+        const Card = ({ children, className = '', ...props }) => (
+            <div className={`rounded-lg border bg-card shadow-sm ${className}`} {...props}>
+                {children}
+            </div>
+        );
+
+        const CardHeader = ({ children, className = '', ...props }) => (
+            <div className={`p-6 pb-2 ${className}`} {...props}>
+                {children}
+            </div>
+        );
+
+        const CardContent = ({ children, className = '', ...props }) => (
+            <div className={`p-6 pt-0 ${className}`} {...props}>
+                {children}
+            </div>
+        );
+
+        const Button = ({ 
+            children, 
+            variant = 'default', 
+            size = 'default', 
+            onClick, 
+            className = '',
+            disabled = false,
+            ...props 
+        }) => {
+            const variants = {
+                default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+                outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+                destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+            };
+
+            const sizes = {
+                sm: 'h-8 px-3 text-sm',
+                default: 'h-10 px-4 py-2',
+                lg: 'h-11 px-8'
+            };
+
+            return (
+                <button
+                    className={`inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+                    onClick={onClick}
+                    disabled={disabled}
+                    {...props}
+                >
+                    {children}
+                </button>
+            );
+        };
+
+        const Input = ({ 
+            label, 
+            description, 
+            error, 
+            leftIcon, 
+            rightIcon,
+            className = '',
+            ...props 
+        }) => {
+            const id = `input-${Math.random().toString(36).substr(2, 9)}`;
+
+            return (
+                <div className="space-y-2">
+                    {label && (
+                        <label htmlFor={id} className="text-sm font-medium">
+                            {label}
+                            {props.required && <span className="text-destructive ml-1">*</span>}
+                        </label>
+                    )}
+                    
+                    {description && (
+                        <p className="text-sm text-muted-foreground">{description}</p>
+                    )}
+
+                    <div className="relative">
+                        {leftIcon && (
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                {leftIcon}
+                            </div>
+                        )}
+                        
+                        <input
+                            id={id}
+                            className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${leftIcon ? 'pl-10' : ''} ${rightIcon ? 'pr-10' : ''} ${error ? 'border-destructive focus:ring-destructive' : ''} ${className}`}
+                            {...props}
+                        />
+
+                        {rightIcon && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                {rightIcon}
+                            </div>
+                        )}
+                    </div>
+
+                    {error && (
+                        <p className="text-sm text-destructive flex items-center space-x-1">
+                            <span>⚠️</span>
+                            <span>{error}</span>
+                        </p>
+                    )}
+                </div>
+            );
+        };
+
+        const Select = ({ children, value, onValueChange, placeholder = "Select...", className = '', ...props }) => {
+            return (
+                <select 
+                    className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ${className}`}
+                    value={value}
+                    onChange={(e) => onValueChange?.(e.target.value)}
+                    {...props}
+                >
+                    <option value="">{placeholder}</option>
+                    {children}
+                </select>
+            );
+        };
+
+        const Switch = ({ checked, onCheckedChange, size = 'default' }) => {
+            return (
+                <button
+                    className={`inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+                        checked ? 'bg-primary' : 'bg-input'
+                    } ${size === 'sm' ? 'h-5 w-9' : 'h-6 w-11'}`}
+                    onClick={() => onCheckedChange?.(!checked)}
+                    role="switch"
+                    aria-checked={checked}
+                >
+                    <div className={`pointer-events-none block rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                        checked ? 
+                        (size === 'sm' ? 'translate-x-4' : 'translate-x-5') : 
+                        'translate-x-0'
+                    } ${size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'}`} />
+                </button>
+            );
+        };
+
+        // Supply Calculator Component
+        const SupplyCalculator = ({ supply, decimals, onSupplyChange }) => {
+            const [calculatorMode, setCalculatorMode] = useState(false);
+            const [userAmount, setUserAmount] = useState('');
+
+            const displayAmount = useMemo(() => {
+                if (!supply || supply === '0') return '0';
+                try {
+                    const supplyBigInt = BigInt(supply);
+                    const humanReadable = Number(supplyBigInt) / Math.pow(10, decimals);
+                    return humanReadable.toLocaleString();
+                } catch {
+                    return 'Invalid';
+                }
+            }, [supply, decimals]);
+
+            const handleUserAmountChange = (value) => {
+                setUserAmount(value);
+                try {
+                    if (!value || value === '0') {
+                        onSupplyChange('0');
+                        return;
+                    }
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue) && numValue >= 0) {
+                        const rawSupply = BigInt(Math.floor(numValue * Math.pow(10, decimals)));
+                        onSupplyChange(rawSupply.toString());
+                    }
+                } catch (error) {
+                    console.error('Supply calculation error:', error);
+                }
+            };
+
+            useEffect(() => {
+                if (calculatorMode && supply) {
+                    try {
+                        const supplyBigInt = BigInt(supply);
+                        const humanReadable = Number(supplyBigInt) / Math.pow(10, decimals);
+                        setUserAmount(humanReadable.toString());
+                    } catch {
+                        setUserAmount('');
+                    }
+                }
+            }, [calculatorMode, supply, decimals]);
+
+            return (
+                <div className="space-y-3" data-testid="supply-calculator">
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Supply Calculator</label>
+                        <Switch
+                            checked={calculatorMode}
+                            onCheckedChange={setCalculatorMode}
+                            size="sm"
+                        />
+                    </div>
+
+                    {calculatorMode && (
+                        <Input
+                            label="User-Friendly Amount"
+                            type="number"
+                            value={userAmount}
+                            onChange={(e) => handleUserAmountChange(e.target.value)}
+                            placeholder="Enter amount (e.g., 1000000)"
+                            description="This will be converted to the raw supply amount"
+                            leftIcon="🧮"
+                            data-testid="calculator-input"
+                        />
+                    )}
+
+                    <div className="p-3 bg-muted rounded-lg space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Display Amount:</span>
+                            <span className="font-mono font-medium" data-testid="display-amount">{displayAmount}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Raw Supply:</span>
+                            <span className="font-mono text-xs" data-testid="raw-supply">{supply || '0'}</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Network Constraints Component
+        const NetworkConstraints = ({ networkId, tokenConfig }) => {
+            const [constraints, setConstraints] = useState({ warnings: [], errors: [] });
+
+            useEffect(() => {
+                const warnings = [];
+                const errors = [];
+
+                if (networkId === 520) { // XSC
+                    if (tokenConfig.decimals > 18) {
+                        errors.push('XSC network supports maximum 18 decimals');
+                    }
+                    
+                    try {
+                        const supply = BigInt(tokenConfig.supply || '0');
+                        const maxSupply = BigInt('1000000000000000000000000'); // 1M tokens
+                        if (supply > maxSupply) {
+                            warnings.push('Very high supply for XSC network - consider lower amounts');
+                        }
+                    } catch {
+                        // Invalid supply
+                    }
+                }
+
+                if (tokenConfig.name.length > 20) {
+                    warnings.push('Long token names increase deployment gas costs');
+                }
+
+                setConstraints({ warnings, errors });
+            }, [networkId, tokenConfig]);
+
+            if (!constraints.warnings.length && !constraints.errors.length) {
+                return null;
+            }
+
+            return (
+                <div className="space-y-2" data-testid="network-constraints">
+                    {constraints.errors.map((error, index) => (
+                        <div key={index} className="flex items-center space-x-2 text-sm text-destructive">
+                            <span>⚠️</span>
+                            <span>{error}</span>
+                        </div>
+                    ))}
+                    {constraints.warnings.map((warning, index) => (
+                        <div key={index} className="flex items-center space-x-2 text-sm text-yellow-600">
+                            <span>💡</span>
+                            <span>{warning}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // Main Token Form Component
+        const TokenBasicForm = () => {
+            const {
+                formData,
+                validationErrors,
+                isValidating,
+                isValid,
+                updateField,
+                setIsValidating
+            } = useFormState();
+
+            const [showAdvanced, setShowAdvanced] = useState(true);
+
+            const handleFieldChange = useCallback((field, value) => {
+                updateField(field, value);
+            }, [updateField]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (isValid) {
+                    console.log('Form submitted:', formData);
+                    alert('Token configuration is valid and ready for deployment!');
+                }
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="space-y-6" data-testid="token-basic-form">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center space-x-2">
+                                <span className="text-xl">🪙</span>
+                                <h2 className="text-xl font-semibold">Basic Token Configuration</h2>
+                            </div>
+                            <p className="text-muted-foreground">
+                                Configure the fundamental properties of your token. All fields are required.
+                            </p>
+                        </CardHeader>
+
+                        <CardContent className="space-y-6">
+                            {/* Token Name */}
+                            <Input
+                                label="Token Name"
+                                description="The full name of your token (e.g., 'Bitcoin', 'Ethereum')"
+                                placeholder="Enter token name"
+                                value={formData.name}
+                                onChange={(e) => handleFieldChange('name', e.target.value)}
+                                error={validationErrors.name?.[0]}
+                                required
+                                leftIcon="📝"
+                                data-testid="token-name-input"
+                            />
+
+                            {/* Token Symbol */}
+                            <Input
+                                label="Token Symbol"
+                                description="Short identifier for your token (e.g., 'BTC', 'ETH')"
+                                placeholder="Enter symbol (3-5 chars)"
+                                value={formData.symbol}
+                                onChange={(e) => handleFieldChange('symbol', e.target.value.toUpperCase())}
+                                error={validationErrors.symbol?.[0]}
+                                required
+                                leftIcon="#️⃣"
+                                data-testid="token-symbol-input"
+                            />
+
+                            {/* Decimals */}
+                            <Input
+                                label="Decimals"
+                                description="Number of decimal places (0-18, typically 18)"
+                                type="number"
+                                min={0}
+                                max={18}
+                                value={formData.decimals}
+                                onChange={(e) => handleFieldChange('decimals', parseInt(e.target.value) || 18)}
+                                error={validationErrors.decimals?.[0]}
+                                required
+                                leftIcon="🧮"
+                                data-testid="token-decimals-input"
+                            />
+
+                            {/* Total Supply */}
+                            <div className="space-y-4">
+                                <Input
+                                    label="Total Supply (Raw)"
+                                    description="Total number of tokens (in smallest unit)"
+                                    value={formData.totalSupply}
+                                    onChange={(e) => handleFieldChange('totalSupply', e.target.value)}
+                                    error={validationErrors.totalSupply?.[0]}
+                                    required
+                                    leftIcon="🪙"
+                                    data-testid="token-supply-input"
+                                />
+                                
+                                <SupplyCalculator
+                                    supply={formData.totalSupply}
+                                    decimals={formData.decimals}
+                                    onSupplyChange={(supply) => handleFieldChange('totalSupply', supply)}
+                                />
+                            </div>
+
+                            {/* Network Selection */}
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Network</label>
+                                    <Select
+                                        value={formData.networkId.toString()}
+                                        onValueChange={(value) => handleFieldChange('networkId', parseInt(value))}
+                                        data-testid="network-select"
+                                    >
+                                        {Object.entries(NETWORKS).map(([id, network]) => (
+                                            <option key={id} value={id}>
+                                                {network.name} ({network.symbol})
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </div>
+
+                                <NetworkConstraints
+                                    networkId={formData.networkId}
+                                    tokenConfig={formData}
+                                />
+                            </div>
+
+                            {/* Validation Summary */}
+                            <div className="pt-4 border-t">
+                                {isValidating ? (
+                                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                        <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                                        <span>Validating configuration...</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center space-x-2 text-sm" data-testid="validation-summary">
+                                        {isValid ? (
+                                            <>
+                                                <span className="text-green-600">✅</span>
+                                                <span className="text-green-600">Configuration is valid</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-destructive">⚠️</span>
+                                                <span className="text-destructive">
+                                                    {Object.values(validationErrors).flat().length} error(s) found
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Actions */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                updateField('name', '');
+                                updateField('symbol', '');
+                                updateField('totalSupply', '1000000000000000000000000');
+                                updateField('decimals', 18);
+                                console.log('Form reset');
+                            }}
+                            data-testid="reset-button"
+                        >
+                            Reset Form
+                        </Button>
+                        
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                updateField('name', 'Example Token');
+                                updateField('symbol', 'EXAM');
+                                updateField('totalSupply', '1000000000000000000000000');
+                                updateField('decimals', 18);
+                                console.log('Example loaded');
+                            }}
+                            data-testid="load-example-button"
+                        >
+                            Load Example
+                        </Button>
+
+                        <Button
+                            type="submit"
+                            disabled={!isValid}
+                            className="sm:ml-auto"
+                            data-testid="submit-button"
+                        >
+                            {isValid ? 'Continue to Advanced Features' : 'Fix Errors to Continue'}
+                        </Button>
+                    </div>
+
+                    {/* Debug Info */}
+                    {showAdvanced && (
+                        <Card>
+                            <CardHeader>
+                                <h3 className="text-lg font-semibold">Debug Info</h3>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2 text-sm">
+                                    <div><strong>Valid:</strong> {isValid ? 'Yes' : 'No'}</div>
+                                    <div><strong>Errors:</strong> {Object.keys(validationErrors).length}</div>
+                                    <div><strong>Network:</strong> {NETWORKS[formData.networkId]?.name}</div>
+                                    <div><strong>Raw Data:</strong></div>
+                                    <pre className="bg-muted p-2 rounded text-xs overflow-auto">
+                                        {JSON.stringify(formData, null, 2)}
+                                    </pre>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </form>
+            );
+        };
+
+        // Test App
+        const TestApp = () => {
+            return (
+                <div className="space-y-8">
+                    <div className="text-center">
+                        <p className="text-muted-foreground">
+                            Test the TokenBasicForm component with real-time validation and advanced features.
+                        </p>
+                    </div>
+                    
+                    <TokenBasicForm />
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<TestApp />, document.getElementById('root'));
+
+        // Make components available for testing
+        window.tokenFormTest = {
+            TokenBasicForm,
+            SupplyCalculator,
+            NetworkConstraints
+        };
+
+        console.log('Token Form test environment ready!');
+    </script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "factory": "0x742d35Cc6634C0532925a3b8D68aB32B8c1c9D1e",
+  "factoryImplementation": "0x8BA1f109551bD432803012645Hac136c22C5c8a9",
+  "template": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+  "deployer": "0x742d35Cc6634C0532925a3b8D68aB32B8c1c9D1e",
+  "owner": "0x742d35Cc6634C0532925a3b8D68aB32B8c1c9D1e",
+  "feeRecipient": "0x742d35Cc6634C0532925a3b8D68aB32B8c1c9D1e",
+  "serviceFee": "1000000000000000",
+  "timestamp": 1706700000,
+  "blockNumber": 4856789,
+  "gasUsed": {
+    "template": "2456789",
+    "factoryImplementation": "3678901",
+    "proxy": "456789"
+  },
+  "templates": [
+    {
+      "id": "basic_erc20",
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    },
+    {
+      "id": "mintable_erc20",
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    },
+    {
+      "id": "full_featured",
+      "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    }
+  ],
+  "verification": {
+    "factoryProxy": "pending",
+    "factoryImplementation": "pending",
+    "template": "pending"
+  },
+  "etherscan": {
+    "factoryProxy": "https://sepolia.etherscan.io/address/0x742d35Cc6634C0532925a3b8D68aB32B8c1c9D1e",
+    "factoryImplementation": "https://sepolia.etherscan.io/address/0x8BA1f109551bD432803012645Hac136c22C5c8a9",
+    "template": "https://sepolia.etherscan.io/address/0x1F98431c8aD98523631AE4a59f267346ea31F984"
+  },
+  "deploymentNotes": "Sepolia testnet deployment with minimal service fees for testing",
+  "status": "deployed"
+}

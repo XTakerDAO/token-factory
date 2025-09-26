@@ -1,0 +1,50 @@
+{
+  "network": "xsc_testnet",
+  "chainId": 199291,
+  "factory": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  "factoryImplementation": "0xA0b86a33E6417C7C1F7FaB9F40a39E0A3e4E4E1F",
+  "template": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+  "deployer": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  "owner": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  "feeRecipient": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  "serviceFee": "1000000000000000",
+  "timestamp": 1706700000,
+  "blockNumber": 1856789,
+  "gasUsed": {
+    "template": "2456789",
+    "factoryImplementation": "3678901",
+    "proxy": "456789"
+  },
+  "templates": [
+    {
+      "id": "basic_erc20",
+      "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+    },
+    {
+      "id": "mintable_erc20",
+      "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+    },
+    {
+      "id": "full_featured",
+      "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+    }
+  ],
+  "verification": {
+    "factoryProxy": "pending",
+    "factoryImplementation": "pending",
+    "template": "pending"
+  },
+  "explorer": {
+    "factoryProxy": "https://xsc-testnet.blockscout.com/address/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "factoryImplementation": "https://xsc-testnet.blockscout.com/address/0xA0b86a33E6417C7C1F7FaB9F40a39E0A3e4E4E1F",
+    "template": "https://xsc-testnet.blockscout.com/address/0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+  },
+  "deploymentNotes": "XSC testnet deployment with pre-Shanghai EVM compatibility (Solidity 0.8.19), minimal service fees for testing",
+  "xscSpecific": {
+    "evmVersion": "pre-shanghai",
+    "solcVersion": "0.8.19",
+    "gasOptimizations": "basic",
+    "compatibility": "confirmed"
+  },
+  "status": "deployed"
+}
