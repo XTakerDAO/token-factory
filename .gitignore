@@ -215,6 +215,9 @@ settings.local.json
 docs/.docusaurus/
 .playwright-mcp/
 .serena/
+.cursor/
+.superdesign/
+.windsurfrules
 
 # ============== Performance & Profiling ==============
 # Lighthouse reports
