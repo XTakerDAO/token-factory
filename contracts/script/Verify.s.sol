@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
@@ -238,7 +238,7 @@ contract Verify is Script {
         DeploymentInfo memory deployment = loadDeploymentInfo(network);
 
         // Default initialization for testing
-        address defaultOwner = 0x742d35Cc6634C0532925a3b8D68aB32B8c1c9D1e; // Replace with actual owner
+        address defaultOwner = 0x742D35cc6634c0532925a3B8d68Ab32b8c1C9d1E; // Replace with actual owner
         address defaultFeeRecipient = defaultOwner;
         uint256 defaultServiceFee = 0.001 ether; // 0.001 ETH for testnets
 

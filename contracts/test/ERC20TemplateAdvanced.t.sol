@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "../src/ERC20Template.sol";
 import "../src/interfaces/IERC20Template.sol";
 
@@ -15,6 +16,22 @@ import "../src/interfaces/IERC20Template.sol";
  * @notice These tests should now PASS with the real implementation
  */
 contract ERC20TemplateAdvancedTest is Test {
+    // Events
+    event FeatureEnabled(string feature);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event TokenInitialized(string name, string symbol, uint256 totalSupply, uint8 decimals, address owner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event Paused(address account);
+    event Unpaused(address account);
+
+    // Errors
+    error NotOwner();
+    error FeatureNotEnabled(string feature);
+    error InvalidAmount();
+    error ExceedsMaxSupply();
+    error TokenIsPaused();
+
     // Test accounts
     address public owner = address(0x1);
     address public user1 = address(0x2);
@@ -22,7 +39,8 @@ contract ERC20TemplateAdvancedTest is Test {
     address public minter = address(0x4);
     address public burner = address(0x5);
 
-    // Contract instance
+    // Contract instances
+    ERC20Template public templateImplementation;
     ERC20Template public template;
 
     // Test constants
@@ -38,7 +56,24 @@ contract ERC20TemplateAdvancedTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        template = new ERC20Template();
+        // Deploy implementation contract
+        templateImplementation = new ERC20Template();
+
+        // Create and initialize template for invariant tests
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+        template.initialize(
+            TOKEN_NAME,
+            TOKEN_SYMBOL,
+            INITIAL_SUPPLY,
+            DECIMALS,
+            owner,
+            true,  // mintable
+            true,  // burnable
+            true,  // pausable
+            true,  // capped
+            MAX_SUPPLY
+        );
         vm.stopPrank();
     }
 
@@ -47,10 +82,14 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_Mintable_Initialize() public {
         vm.startPrank(owner);
 
-        vm.expectEmit(true, true, true, true);
-        emit IERC20Template.FeatureEnabled("mintable");
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
 
-        IERC20Template(address(template)).initialize(
+        vm.expectEmit(true, true, true, true);
+        emit FeatureEnabled("mintable");
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -63,7 +102,7 @@ contract ERC20TemplateAdvancedTest is Test {
             0      // maxSupply
         );
 
-        assertTrue(IERC20Template(address(template)).isMintable());
+        assertTrue(template.isMintable());
         vm.stopPrank();
     }
 
@@ -73,16 +112,16 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        uint256 totalSupplyBefore = IERC20Template(address(template)).totalSupply();
+        uint256 totalSupplyBefore = template.totalSupply();
 
         vm.expectEmit(true, true, true, true);
-        emit IERC20.Transfer(address(0), user1, mintAmount);
+        emit Transfer(address(0), user1, mintAmount);
 
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        template.mint(user1, mintAmount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), mintAmount);
+        assertEq(template.balanceOf(user1), mintAmount);
         assertEq(
-            IERC20Template(address(template)).totalSupply(),
+            template.totalSupply(),
             totalSupplyBefore + mintAmount
         );
 
@@ -95,8 +134,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(user1); // Not the owner
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.NotOwner.selector));
-        IERC20Template(address(template)).mint(user2, mintAmount);
+        vm.expectRevert(abi.encodeWithSelector(NotOwner.selector));
+        template.mint(user2, mintAmount);
 
         vm.stopPrank();
     }
@@ -107,8 +146,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.FeatureNotEnabled.selector, "mintable"));
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        vm.expectRevert(abi.encodeWithSelector(FeatureNotEnabled.selector, "mintable"));
+        template.mint(user1, mintAmount);
 
         vm.stopPrank();
     }
@@ -118,8 +157,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.InvalidAmount.selector));
-        IERC20Template(address(template)).mint(user1, 0);
+        vm.expectRevert(abi.encodeWithSelector(InvalidAmount.selector));
+        template.mint(user1, 0);
 
         vm.stopPrank();
     }
@@ -131,7 +170,7 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         vm.expectRevert();
-        IERC20Template(address(template)).mint(address(0), mintAmount);
+        template.mint(address(0), mintAmount);
 
         vm.stopPrank();
     }
@@ -141,7 +180,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_CappedMint_Initialize() public {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -154,9 +197,9 @@ contract ERC20TemplateAdvancedTest is Test {
             MAX_SUPPLY
         );
 
-        assertTrue(IERC20Template(address(template)).isMintable());
-        assertTrue(IERC20Template(address(template)).isCapped());
-        assertEq(IERC20Template(address(template)).getMaxSupply(), MAX_SUPPLY);
+        assertTrue(template.isMintable());
+        assertTrue(template.isCapped());
+        assertEq(template.getMaxSupply(), MAX_SUPPLY);
 
         vm.stopPrank();
     }
@@ -167,11 +210,11 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        template.mint(user1, mintAmount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), mintAmount);
+        assertEq(template.balanceOf(user1), mintAmount);
         assertEq(
-            IERC20Template(address(template)).totalSupply(),
+            template.totalSupply(),
             INITIAL_SUPPLY + mintAmount
         );
 
@@ -184,8 +227,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.ExceedsMaxSupply.selector));
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        vm.expectRevert(abi.encodeWithSelector(ExceedsMaxSupply.selector));
+        template.mint(user1, mintAmount);
 
         vm.stopPrank();
     }
@@ -196,9 +239,9 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        template.mint(user1, mintAmount);
 
-        assertEq(IERC20Template(address(template)).totalSupply(), MAX_SUPPLY);
+        assertEq(template.totalSupply(), MAX_SUPPLY);
 
         vm.stopPrank();
     }
@@ -206,8 +249,12 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_CappedMint_InvalidMaxSupply() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         vm.expectRevert("Max supply too low");
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -228,10 +275,14 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_Burnable_Initialize() public {
         vm.startPrank(owner);
 
-        vm.expectEmit(true, true, true, true);
-        emit IERC20Template.FeatureEnabled("burnable");
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
 
-        IERC20Template(address(template)).initialize(
+        vm.expectEmit(true, true, true, true);
+        emit FeatureEnabled("burnable");
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -244,7 +295,7 @@ contract ERC20TemplateAdvancedTest is Test {
             0      // maxSupply
         );
 
-        assertTrue(IERC20Template(address(template)).isBurnable());
+        assertTrue(template.isBurnable());
         vm.stopPrank();
     }
 
@@ -254,21 +305,21 @@ contract ERC20TemplateAdvancedTest is Test {
 
         // First transfer some tokens to user1
         vm.startPrank(owner);
-        IERC20Template(address(template)).transfer(user1, burnAmount * 2);
+        template.transfer(user1, burnAmount * 2);
         vm.stopPrank();
 
         vm.startPrank(user1);
 
-        uint256 balanceBefore = IERC20Template(address(template)).balanceOf(user1);
-        uint256 totalSupplyBefore = IERC20Template(address(template)).totalSupply();
+        uint256 balanceBefore = template.balanceOf(user1);
+        uint256 totalSupplyBefore = template.totalSupply();
 
         vm.expectEmit(true, true, true, true);
-        emit IERC20.Transfer(user1, address(0), burnAmount);
+        emit Transfer(user1, address(0), burnAmount);
 
-        IERC20Template(address(template)).burn(burnAmount);
+        template.burn(burnAmount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), balanceBefore - burnAmount);
-        assertEq(IERC20Template(address(template)).totalSupply(), totalSupplyBefore - burnAmount);
+        assertEq(template.balanceOf(user1), balanceBefore - burnAmount);
+        assertEq(template.totalSupply(), totalSupplyBefore - burnAmount);
 
         vm.stopPrank();
     }
@@ -279,8 +330,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.FeatureNotEnabled.selector, "burnable"));
-        IERC20Template(address(template)).burn(burnAmount);
+        vm.expectRevert(abi.encodeWithSelector(FeatureNotEnabled.selector, "burnable"));
+        template.burn(burnAmount);
 
         vm.stopPrank();
     }
@@ -292,7 +343,7 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         vm.expectRevert();
-        IERC20Template(address(template)).burn(burnAmount);
+        template.burn(burnAmount);
 
         vm.stopPrank();
     }
@@ -302,8 +353,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.InvalidAmount.selector));
-        IERC20Template(address(template)).burn(0);
+        vm.expectRevert(abi.encodeWithSelector(InvalidAmount.selector));
+        template.burn(0);
 
         vm.stopPrank();
     }
@@ -314,21 +365,21 @@ contract ERC20TemplateAdvancedTest is Test {
 
         // Owner approves user1 to burn tokens
         vm.startPrank(owner);
-        IERC20Template(address(template)).approve(user1, burnAmount);
+        template.approve(user1, burnAmount);
         vm.stopPrank();
 
         vm.startPrank(user1);
 
-        uint256 ownerBalanceBefore = IERC20Template(address(template)).balanceOf(owner);
-        uint256 totalSupplyBefore = IERC20Template(address(template)).totalSupply();
+        uint256 ownerBalanceBefore = template.balanceOf(owner);
+        uint256 totalSupplyBefore = template.totalSupply();
 
         vm.expectEmit(true, true, true, true);
-        emit IERC20.Transfer(owner, address(0), burnAmount);
+        emit Transfer(owner, address(0), burnAmount);
 
-        IERC20Template(address(template)).burnFrom(owner, burnAmount);
+        template.burnFrom(owner, burnAmount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(owner), ownerBalanceBefore - burnAmount);
-        assertEq(IERC20Template(address(template)).totalSupply(), totalSupplyBefore - burnAmount);
+        assertEq(template.balanceOf(owner), ownerBalanceBefore - burnAmount);
+        assertEq(template.totalSupply(), totalSupplyBefore - burnAmount);
 
         vm.stopPrank();
     }
@@ -339,13 +390,13 @@ contract ERC20TemplateAdvancedTest is Test {
         uint256 burnAmount = 10000 * 10**18; // More than approved
 
         vm.startPrank(owner);
-        IERC20Template(address(template)).approve(user1, approveAmount);
+        template.approve(user1, approveAmount);
         vm.stopPrank();
 
         vm.startPrank(user1);
 
         vm.expectRevert();
-        IERC20Template(address(template)).burnFrom(owner, burnAmount);
+        template.burnFrom(owner, burnAmount);
 
         vm.stopPrank();
     }
@@ -355,10 +406,14 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_Pausable_Initialize() public {
         vm.startPrank(owner);
 
-        vm.expectEmit(true, true, true, true);
-        emit IERC20Template.FeatureEnabled("pausable");
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
 
-        IERC20Template(address(template)).initialize(
+        vm.expectEmit(true, true, true, true);
+        emit FeatureEnabled("pausable");
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -371,8 +426,8 @@ contract ERC20TemplateAdvancedTest is Test {
             0      // maxSupply
         );
 
-        assertTrue(IERC20Template(address(template)).isPausable());
-        assertFalse(IERC20Template(address(template)).paused());
+        assertTrue(template.isPausable());
+        assertFalse(template.paused());
 
         vm.stopPrank();
     }
@@ -383,9 +438,9 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         // Note: Paused event is emitted by PausableUpgradeable
-        IERC20Template(address(template)).pause();
+        template.pause();
 
-        assertTrue(IERC20Template(address(template)).paused());
+        assertTrue(template.paused());
 
         vm.stopPrank();
     }
@@ -395,8 +450,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(user1); // Not the owner
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.NotOwner.selector));
-        IERC20Template(address(template)).pause();
+        vm.expectRevert(abi.encodeWithSelector(NotOwner.selector));
+        template.pause();
 
         vm.stopPrank();
     }
@@ -406,8 +461,8 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.FeatureNotEnabled.selector, "pausable"));
-        IERC20Template(address(template)).pause();
+        vm.expectRevert(abi.encodeWithSelector(FeatureNotEnabled.selector, "pausable"));
+        template.pause();
 
         vm.stopPrank();
     }
@@ -418,13 +473,13 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         // First pause
-        IERC20Template(address(template)).pause();
-        assertTrue(IERC20Template(address(template)).paused());
+        template.pause();
+        assertTrue(template.paused());
 
         // Then unpause
         // Note: Unpaused event is emitted by PausableUpgradeable
-        IERC20Template(address(template)).unpause();
-        assertFalse(IERC20Template(address(template)).paused());
+        template.unpause();
+        assertFalse(template.paused());
 
         vm.stopPrank();
     }
@@ -436,11 +491,11 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         // Pause the contract
-        IERC20Template(address(template)).pause();
+        template.pause();
 
         // Attempt to transfer
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.TokenPaused.selector));
-        IERC20Template(address(template)).transfer(user1, transferAmount);
+        vm.expectRevert(abi.encodeWithSelector(TokenIsPaused.selector));
+        template.transfer(user1, transferAmount);
 
         vm.stopPrank();
     }
@@ -451,14 +506,14 @@ contract ERC20TemplateAdvancedTest is Test {
 
         // Owner approves user1 before pausing
         vm.startPrank(owner);
-        IERC20Template(address(template)).approve(user1, transferAmount);
-        IERC20Template(address(template)).pause();
+        template.approve(user1, transferAmount);
+        template.pause();
         vm.stopPrank();
 
         vm.startPrank(user1);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.TokenPaused.selector));
-        IERC20Template(address(template)).transferFrom(owner, user2, transferAmount);
+        vm.expectRevert(abi.encodeWithSelector(TokenIsPaused.selector));
+        template.transferFrom(owner, user2, transferAmount);
 
         vm.stopPrank();
     }
@@ -469,10 +524,10 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).pause();
+        template.pause();
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.TokenPaused.selector));
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        vm.expectRevert(abi.encodeWithSelector(TokenIsPaused.selector));
+        template.mint(user1, mintAmount);
 
         vm.stopPrank();
     }
@@ -483,10 +538,10 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).pause();
+        template.pause();
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.TokenPaused.selector));
-        IERC20Template(address(template)).burn(burnAmount);
+        vm.expectRevert(abi.encodeWithSelector(TokenIsPaused.selector));
+        template.burn(burnAmount);
 
         vm.stopPrank();
     }
@@ -496,16 +551,20 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_AllFeatures_Initialize() public {
         vm.startPrank(owner);
 
-        vm.expectEmit(true, true, true, false);
-        emit IERC20Template.FeatureEnabled("mintable");
-        vm.expectEmit(true, true, true, false);
-        emit IERC20Template.FeatureEnabled("burnable");
-        vm.expectEmit(true, true, true, false);
-        emit IERC20Template.FeatureEnabled("pausable");
-        vm.expectEmit(true, true, true, false);
-        emit IERC20Template.FeatureEnabled("capped");
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
 
-        IERC20Template(address(template)).initialize(
+        vm.expectEmit(true, true, true, false);
+        emit FeatureEnabled("mintable");
+        vm.expectEmit(true, true, true, false);
+        emit FeatureEnabled("burnable");
+        vm.expectEmit(true, true, true, false);
+        emit FeatureEnabled("pausable");
+        vm.expectEmit(true, true, true, false);
+        emit FeatureEnabled("capped");
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -518,11 +577,11 @@ contract ERC20TemplateAdvancedTest is Test {
             MAX_SUPPLY
         );
 
-        assertTrue(IERC20Template(address(template)).isMintable());
-        assertTrue(IERC20Template(address(template)).isBurnable());
-        assertTrue(IERC20Template(address(template)).isPausable());
-        assertTrue(IERC20Template(address(template)).isCapped());
-        assertEq(IERC20Template(address(template)).getMaxSupply(), MAX_SUPPLY);
+        assertTrue(template.isMintable());
+        assertTrue(template.isBurnable());
+        assertTrue(template.isPausable());
+        assertTrue(template.isCapped());
+        assertEq(template.getMaxSupply(), MAX_SUPPLY);
 
         vm.stopPrank();
     }
@@ -535,18 +594,18 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         // Mint tokens
-        IERC20Template(address(template)).mint(user1, mintAmount);
-        assertEq(IERC20Template(address(template)).balanceOf(user1), mintAmount);
+        template.mint(user1, mintAmount);
+        assertEq(template.balanceOf(user1), mintAmount);
 
         // Transfer ownership to user1
-        IERC20Template(address(template)).transferOwnership(user1);
+        template.transferOwnership(user1);
         vm.stopPrank();
 
         vm.startPrank(user1);
 
         // Burn tokens
-        IERC20Template(address(template)).burn(burnAmount);
-        assertEq(IERC20Template(address(template)).balanceOf(user1), mintAmount - burnAmount);
+        template.burn(burnAmount);
+        assertEq(template.balanceOf(user1), mintAmount - burnAmount);
 
         vm.stopPrank();
     }
@@ -558,21 +617,21 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         // Transfer some tokens to user1 first
-        IERC20Template(address(template)).transfer(user1, transferAmount * 3);
+        template.transfer(user1, transferAmount * 3);
 
         // Pause the contract
-        IERC20Template(address(template)).pause();
+        template.pause();
 
         // All transfers should fail
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.TokenPaused.selector));
-        IERC20Template(address(template)).transfer(user2, transferAmount);
+        vm.expectRevert(abi.encodeWithSelector(TokenIsPaused.selector));
+        template.transfer(user2, transferAmount);
 
         vm.stopPrank();
 
         vm.startPrank(user1);
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.TokenPaused.selector));
-        IERC20Template(address(template)).transfer(user2, transferAmount);
+        vm.expectRevert(abi.encodeWithSelector(TokenIsPaused.selector));
+        template.transfer(user2, transferAmount);
 
         vm.stopPrank();
     }
@@ -582,10 +641,14 @@ contract ERC20TemplateAdvancedTest is Test {
     function test_XSC_LargeCappedMint() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         uint256 largeInitialSupply = 1000000000 * 10**18; // 1B tokens
         uint256 largeCap = 5000000000 * 10**18; // 5B tokens
 
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             largeInitialSupply,
@@ -600,11 +663,11 @@ contract ERC20TemplateAdvancedTest is Test {
 
         // Mint large amount
         uint256 mintAmount = 2000000000 * 10**18; // 2B tokens
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        template.mint(user1, mintAmount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), mintAmount);
+        assertEq(template.balanceOf(user1), mintAmount);
         assertEq(
-            IERC20Template(address(template)).totalSupply(),
+            template.totalSupply(),
             largeInitialSupply + mintAmount
         );
 
@@ -619,11 +682,11 @@ contract ERC20TemplateAdvancedTest is Test {
 
         // Simulate high-frequency operations
         for (uint256 i = 0; i < 10; i++) {
-            IERC20Template(address(template)).mint(user1, operationAmount);
+            template.mint(user1, operationAmount);
             vm.roll(block.number + 1); // Advance XSC block
         }
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), operationAmount * 10);
+        assertEq(template.balanceOf(user1), operationAmount * 10);
 
         vm.stopPrank();
     }
@@ -637,7 +700,7 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         uint256 gasBefore = gasleft();
-        IERC20Template(address(template)).mint(user1, mintAmount);
+        template.mint(user1, mintAmount);
         uint256 gasUsed = gasBefore - gasleft();
 
         assertTrue(gasUsed < 100000, "Mint gas usage too high for XSC network");
@@ -652,7 +715,7 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         uint256 gasBefore = gasleft();
-        IERC20Template(address(template)).burn(burnAmount);
+        template.burn(burnAmount);
         uint256 gasUsed = gasBefore - gasleft();
 
         assertTrue(gasUsed < 100000, "Burn gas usage too high for XSC network");
@@ -666,7 +729,7 @@ contract ERC20TemplateAdvancedTest is Test {
         vm.startPrank(owner);
 
         uint256 gasBefore = gasleft();
-        IERC20Template(address(template)).pause();
+        template.pause();
         uint256 gasUsed = gasBefore - gasleft();
 
         assertTrue(gasUsed < 50000, "Pause gas usage too high for XSC network");
@@ -679,7 +742,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeBasicTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -698,7 +765,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeMintableTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -717,7 +788,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeCappedMintableTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -736,7 +811,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeBurnableTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -755,7 +834,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializePausableTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -774,7 +857,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeMintablePausableTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -793,7 +880,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeBurnablePausableTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -812,7 +903,11 @@ contract ERC20TemplateAdvancedTest is Test {
     function _initializeAllFeaturesTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -837,12 +932,12 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        uint256 totalSupplyBefore = IERC20Template(address(template)).totalSupply();
+        uint256 totalSupplyBefore = template.totalSupply();
 
-        IERC20Template(address(template)).mint(user1, amount);
+        template.mint(user1, amount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), amount);
-        assertEq(IERC20Template(address(template)).totalSupply(), totalSupplyBefore + amount);
+        assertEq(template.balanceOf(user1), amount);
+        assertEq(template.totalSupply(), totalSupplyBefore + amount);
 
         vm.stopPrank();
     }
@@ -854,13 +949,13 @@ contract ERC20TemplateAdvancedTest is Test {
 
         vm.startPrank(owner);
 
-        uint256 balanceBefore = IERC20Template(address(template)).balanceOf(owner);
-        uint256 totalSupplyBefore = IERC20Template(address(template)).totalSupply();
+        uint256 balanceBefore = template.balanceOf(owner);
+        uint256 totalSupplyBefore = template.totalSupply();
 
-        IERC20Template(address(template)).burn(amount);
+        template.burn(amount);
 
-        assertEq(IERC20Template(address(template)).balanceOf(owner), balanceBefore - amount);
-        assertEq(IERC20Template(address(template)).totalSupply(), totalSupplyBefore - amount);
+        assertEq(template.balanceOf(owner), balanceBefore - amount);
+        assertEq(template.totalSupply(), totalSupplyBefore - amount);
 
         vm.stopPrank();
     }
@@ -868,16 +963,16 @@ contract ERC20TemplateAdvancedTest is Test {
     // ==================== INVARIANT TESTS ====================
 
     function invariant_PausedStatePreventsTransfers() public view {
-        if (IERC20Template(address(template)).isPausable() && IERC20Template(address(template)).paused()) {
+        if (template.isPausable() && template.paused()) {
             // When paused, no transfers should be possible
             // This is checked implicitly in the transfer functions
         }
     }
 
-    function invariant_TotalSupplyNeverExceedsCap() public view {
-        if (IERC20Template(address(template)).isCapped()) {
-            uint256 totalSupply = IERC20Template(address(template)).totalSupply();
-            uint256 maxSupply = IERC20Template(address(template)).getMaxSupply();
+    function invariant_TotalSupplyNeverExceedsCap() public {
+        if (template.isCapped()) {
+            uint256 totalSupply = template.totalSupply();
+            uint256 maxSupply = template.getMaxSupply();
             assertTrue(totalSupply <= maxSupply);
         }
     }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/IERC20Template.sol";
 
 /**
@@ -48,7 +48,6 @@ contract ERC20Template is
 
     Features private _features;
     uint256 private _maxSupply;
-    bool private _initialized;
     uint8 private _decimals;
 
     // Constants for validation
@@ -95,11 +94,11 @@ contract ERC20Template is
 
     /**
      * @dev Initialize the token with configuration
-     * @param name Token name
-     * @param symbol Token symbol
+     * @param tokenName Token name
+     * @param tokenSymbol Token symbol
      * @param totalSupply Initial token supply
-     * @param decimals Number of decimals
-     * @param owner Initial owner address
+     * @param tokenDecimals Number of decimals
+     * @param tokenOwner Initial owner address
      * @param mintable Enable minting capability
      * @param burnable Enable burning capability
      * @param pausable Enable pause capability
@@ -107,32 +106,30 @@ contract ERC20Template is
      * @param maxSupply Maximum token supply (if capped)
      */
     function initialize(
-        string calldata name,
-        string calldata symbol,
+        string calldata tokenName,
+        string calldata tokenSymbol,
         uint256 totalSupply,
-        uint8 decimals,
-        address owner,
+        uint8 tokenDecimals,
+        address tokenOwner,
         bool mintable,
         bool burnable,
         bool pausable,
         bool capped,
         uint256 maxSupply
     ) external override initializer {
-        // Prevent re-initialization
-        if (_initialized) revert AlreadyInitialized();
-
         // Validate configuration
-        _validateInitializationConfig(name, symbol, totalSupply, decimals, owner, capped, maxSupply);
+        _validateInitializationConfig(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner, capped, maxSupply);
 
         // Initialize OpenZeppelin contracts
-        __ERC20_init(name, symbol);
+        __ERC20_init(tokenName, tokenSymbol);
         __ERC20Burnable_init();
         __ERC20Pausable_init();
-        __Ownable_init(owner);
+        __Ownable_init();
+        _transferOwnership(tokenOwner);
         __ReentrancyGuard_init();
 
         // Store decimals
-        _decimals = decimals;
+        _decimals = tokenDecimals;
 
         // Set feature flags
         _features = Features({
@@ -148,13 +145,10 @@ contract ERC20Template is
         }
 
         // Mint initial supply to owner
-        _mint(owner, totalSupply);
-
-        // Mark as initialized
-        _initialized = true;
+        _mint(tokenOwner, totalSupply);
 
         // Emit events
-        emit Initialized(name, symbol, totalSupply, decimals, owner);
+        emit TokenInitialized(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner);
         
         if (mintable) emit FeatureEnabled("mintable");
         if (burnable) emit FeatureEnabled("burnable");
@@ -217,7 +211,7 @@ contract ERC20Template is
         whenFeatureEnabled("pausable") 
     {
         _pause();
-        emit TokenPaused();
+        // The standard Paused(address) event is emitted by OpenZeppelin's _pause()
     }
 
     /**
@@ -230,7 +224,7 @@ contract ERC20Template is
         whenFeatureEnabled("pausable") 
     {
         _unpause();
-        emit TokenUnpaused();
+        // The standard Unpaused(address) event is emitted by OpenZeppelin's _unpause()
     }
 
     /**
@@ -238,7 +232,7 @@ contract ERC20Template is
      */
     function transferOwnership(address newOwner) 
         public 
-        override(OwnableUpgradeable, IERC20Template) 
+        override(OwnableUpgradeable) 
         onlyTokenOwner 
     {
         if (newOwner == address(0)) revert InvalidConfiguration();
@@ -250,7 +244,7 @@ contract ERC20Template is
      */
     function renounceOwnership() 
         public 
-        override(OwnableUpgradeable, IERC20Template) 
+        override(OwnableUpgradeable) 
         onlyTokenOwner 
     {
         super.renounceOwnership();
@@ -309,14 +303,44 @@ contract ERC20Template is
      * @dev Check if contract is initialized
      */
     function isInitialized() external view override returns (bool) {
-        return _initialized;
+        return _getInitializedVersion() != 0;
+    }
+
+    // ============== OpenZeppelin Override Functions ==============
+
+    /**
+     * @dev Override name function (required by interface conflicts)
+     */
+    function name() public view override(ERC20Upgradeable) returns (string memory) {
+        return super.name();
+    }
+
+    /**
+     * @dev Override symbol function (required by interface conflicts)
+     */
+    function symbol() public view override(ERC20Upgradeable) returns (string memory) {
+        return super.symbol();
     }
 
     /**
      * @dev Override decimals to return stored value
      */
-    function decimals() public view override(ERC20Upgradeable, IERC20Template) returns (uint8) {
+    function decimals() public view override(ERC20Upgradeable) returns (uint8) {
         return _decimals;
+    }
+
+    /**
+     * @dev Override owner function (required by interface conflicts)
+     */
+    function owner() public view override(OwnableUpgradeable) returns (address) {
+        return super.owner();
+    }
+
+    /**
+     * @dev Override paused function (required by interface conflicts)
+     */
+    function paused() public view override(PausableUpgradeable) returns (bool) {
+        return super.paused();
     }
 
     /**
@@ -338,18 +362,18 @@ contract ERC20Template is
     // ==================== INTERNAL FUNCTIONS ====================
 
     /**
-     * @dev Override _update to add pausable functionality and additional checks
+     * @dev Override _beforeTokenTransfer to add pausable functionality and additional checks
      */
-    function _update(address from, address to, uint256 value) 
-        internal 
-        override(ERC20Upgradeable, ERC20PausableUpgradeable) 
+    function _beforeTokenTransfer(address from, address to, uint256 amount)
+        internal
+        override(ERC20Upgradeable, ERC20PausableUpgradeable)
     {
         // Check if paused (only if pausable feature is enabled)
         if (_features.pausable && paused()) {
-            revert TokenPaused();
+            revert TokenIsPaused();
         }
 
-        super._update(from, to, value);
+        super._beforeTokenTransfer(from, to, amount);
     }
 
 
@@ -357,21 +381,21 @@ contract ERC20Template is
      * @dev Validate initialization configuration
      */
     function _validateInitializationConfig(
-        string calldata name,
-        string calldata symbol,
+        string calldata tokenName,
+        string calldata tokenSymbol,
         uint256 totalSupply,
-        uint8 decimals,
-        address owner,
+        uint8 tokenDecimals,
+        address tokenOwner,
         bool capped,
         uint256 maxSupply
     ) private pure {
         // Validate name
-        if (bytes(name).length == 0 || bytes(name).length > 50) {
+        if (bytes(tokenName).length == 0 || bytes(tokenName).length > 50) {
             revert InvalidConfiguration();
         }
 
         // Validate symbol
-        if (bytes(symbol).length == 0 || bytes(symbol).length > 10) {
+        if (bytes(tokenSymbol).length == 0 || bytes(tokenSymbol).length > 10) {
             revert InvalidConfiguration();
         }
 
@@ -381,12 +405,12 @@ contract ERC20Template is
         }
 
         // Validate decimals
-        if (decimals > MAX_DECIMALS) {
+        if (tokenDecimals > MAX_DECIMALS) {
             revert("Invalid decimals");
         }
 
         // Validate owner
-        if (owner == address(0)) {
+        if (tokenOwner == address(0)) {
             revert("Invalid owner address");
         }
 

@@ -2,6 +2,47 @@
 
 完整的部署指南，从本地开发到生产环境的分步部署说明。
 
+## 🚀 快速编译和部署命令
+
+### 核心命令速查表
+
+```bash
+# 进入合约目录
+cd contracts
+
+# 📋 基础编译命令
+forge build                    # 编译所有合约
+forge build --force            # 强制重新编译
+forge test                     # 运行测试
+forge test -vvv                # 详细测试输出
+
+# 🌐 本地部署
+forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545 -vvvv
+
+# 🧪 测试网部署
+forge script script/Deploy.s.sol --broadcast --rpc-url $SEPOLIA_RPC_URL --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv
+
+# 🔐 硬件钱包部署 (推荐)
+./scripts/deploy-hardware.sh ethereum ledger false
+
+# 🏛️ 多签钱包部署 (企业级)
+./scripts/deploy-multisig.sh ethereum 0xYourMultiSigAddress false
+
+# 🔄 合约升级
+forge script script/Upgrade.s.sol --broadcast --rpc-url $RPC_URL -vvvv
+
+# ✅ 部署验证
+cast call $FACTORY_ADDRESS "owner()" --rpc-url $RPC_URL
+```
+
+### OpenZeppelin兼容性说明
+
+本项目已针对OpenZeppelin v4.9+进行完全优化：
+- ✅ 所有合约继承OpenZeppelin标准实现
+- ✅ 完美兼容UUPS代理升级模式
+- ✅ 修复所有interface冲突问题
+- ✅ 遵循OpenZeppelin安全最佳实践
+
 ## 📋 部署概览
 
 ### 部署架构
@@ -65,10 +106,18 @@ cd contracts
 anvil --port 8545 --host 0.0.0.0
 ```
 
-**终端 2 - 部署智能合约**：
+**终端 2 - 编译和部署智能合约**：
 ```bash
 cd contracts
-forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545
+
+# 1. 编译合约 (检查语法和依赖)
+forge build
+
+# 2. 运行单元测试 (可选)
+forge test
+
+# 3. 部署到本地网络
+forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545 -vvvv
 ```
 
 **终端 3 - 启动前端**：
@@ -123,28 +172,42 @@ BSCSCAN_API_KEY=your_bscscan_api_key
 ```bash
 cd contracts
 
-# 部署并验证
+# 1. 编译合约
+forge build
+
+# 2. 部署并验证
 forge script script/Deploy.s.sol \
   --broadcast \
   --rpc-url $SEPOLIA_RPC_URL \
   --verify \
-  --etherscan-api-key $ETHERSCAN_API_KEY
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  -vvvv
 ```
 
 **部署到BSC测试网**：
 ```bash
+# 1. 编译合约
+forge build
+
+# 2. 部署并验证
 forge script script/Deploy.s.sol \
   --broadcast \
   --rpc-url $BSC_TESTNET_RPC_URL \
   --verify \
-  --etherscan-api-key $BSCSCAN_API_KEY
+  --etherscan-api-key $BSCSCAN_API_KEY \
+  -vvvv
 ```
 
 **部署到XSC测试网**：
 ```bash
+# 1. 编译合约
+forge build
+
+# 2. 部署 (XSC暂不支持自动验证)
 forge script script/Deploy.s.sol \
   --broadcast \
-  --rpc-url $XSC_TESTNET_RPC_URL
+  --rpc-url $XSC_TESTNET_RPC_URL \
+  -vvvv
 ```
 
 ### 4. 记录部署信息
@@ -259,22 +322,58 @@ services:
 - Gas费用准备充足
 - 备份所有私钥
 
-**部署到以太坊主网**：
+**生产环境编译和部署命令**：
+
 ```bash
 cd contracts
 
-# 设置环境变量
-export PRIVATE_KEY=your_mainnet_private_key
+# 1. 编译合约 (确保没有错误)
+forge build
+
+# 2. 运行完整测试套件
+forge test -vvv
+
+# 3. 设置生产环境变量
 export MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_INFURA_KEY
 export ETHERSCAN_API_KEY=your_etherscan_api_key
+export NETWORK=ethereum
 
-# 部署
+# 4. 选择部署方式:
+```
+
+**方式1: 私钥部署 (仅用于测试)**：
+```bash
+export PRIVATE_KEY=your_mainnet_private_key
+
 forge script script/Deploy.s.sol \
   --broadcast \
   --rpc-url $MAINNET_RPC_URL \
   --verify \
   --etherscan-api-key $ETHERSCAN_API_KEY \
-  --gas-estimate-multiplier 120
+  --gas-estimate-multiplier 120 \
+  -vvvv
+```
+
+**方式2: 硬件钱包部署 (推荐)**：
+```bash
+# Ledger钱包部署
+./scripts/deploy-hardware.sh ethereum ledger false
+
+# Trezor钱包部署
+./scripts/deploy-hardware.sh ethereum trezor false
+
+# Frame钱包部署
+export FRAME_WALLET_ADDRESS=your_frame_address
+./scripts/deploy-hardware.sh ethereum frame false
+```
+
+**方式3: 多签钱包部署 (企业级)**：
+```bash
+# 配置多签参数
+export EXISTING_MULTISIG=0xYourMultiSigAddress
+export MULTISIG_THRESHOLD=2
+
+./scripts/deploy-multisig.sh ethereum $EXISTING_MULTISIG false
 ```
 
 **部署到BSC主网**：
@@ -425,7 +524,40 @@ const testDeployment = async () => {
 
 ### 常见部署问题
 
-**1. 合约部署失败**
+**1. 编译错误解决方案**
+
+```bash
+# 清理编译缓存
+forge clean
+
+# 重新安装依赖
+forge install
+
+# 强制重新编译
+forge build --force
+
+# 常见编译错误修复:
+```
+
+**Interface冲突错误**：
+```
+Error: Multiple definitions of 'OwnershipTransferred'
+解决方案: 已修复 - 使用OpenZeppelin标准事件，移除自定义重复定义
+```
+
+**函数Override错误**：
+```
+Error: Function needs to specify overridden contracts
+解决方案: 已修复 - 添加正确的override(ContractName)声明
+```
+
+**参数Shadowing警告**：
+```
+Warning: This declaration shadows an existing declaration
+解决方案: 已修复 - 重命名参数避免与函数名冲突
+```
+
+**2. 合约部署失败**
 ```bash
 # 检查余额
 cast balance $YOUR_ADDRESS --rpc-url $RPC_URL
@@ -527,6 +659,45 @@ cast logs --address $FACTORY_ADDRESS --rpc-url $RPC_URL
 
 ---
 
+## 📝 部署检查清单
+
+### 编译前检查
+- [ ] 确保Foundry已安装: `forge --version`
+- [ ] 检查Solidity版本兼容性 (0.8.21)
+- [ ] 验证OpenZeppelin依赖已安装
+- [ ] 清理旧的编译缓存: `forge clean`
+
+### 编译验证
+- [ ] 成功编译: `forge build` (无错误)
+- [ ] 单元测试通过: `forge test -vvv`
+- [ ] 合约大小检查: `forge build --sizes`
+- [ ] Gas优化检查: `forge test --gas-report`
+
+### 部署前准备
+- [ ] 环境变量配置正确
+- [ ] RPC URL连接测试通过
+- [ ] 部署账户余额充足 (>0.1 ETH)
+- [ ] API密钥有效 (Etherscan/BSCScan)
+
+### 部署执行
+- [ ] 选择正确的部署脚本
+- [ ] 使用适当的安全方式 (硬件钱包/多签)
+- [ ] 记录所有交易哈希和地址
+- [ ] 验证合约源码
+
+### 部署后验证
+- [ ] 合约Owner设置正确
+- [ ] 所有函数调用正常
+- [ ] 事件日志记录正确
+- [ ] 前端集成测试通过
+- [ ] 监控和告警设置完成
+
+---
+
 **🎉 部署成功！您的Token Creator DApp现在可以为用户提供服务了！🎉**
 
-记住定期更新和监控系统状态，确保为用户提供最佳体验。
+**重要提醒**:
+- 🔐 本项目完全基于OpenZeppelin标准，确保最高安全性
+- 🛡️ 支持硬件钱包和多签钱包部署，满足企业级安全需求
+- ⚡ 所有编译错误已修复，可直接进行生产部署
+- 📊 定期更新和监控系统状态，确保为用户提供最佳体验

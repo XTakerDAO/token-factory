@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
@@ -269,7 +269,7 @@ contract Deploy is Script {
     }
 
     // XSC-specific deployment with pre-Shanghai EVM compatibility
-    function deployForXSC() public returns (address factory, address template) {
+    function deployForXsc() public returns (address factory, address template) {
         console.log("Deploying for XSC Network with pre-Shanghai EVM compatibility...");
         console.log("Using Solidity 0.8.19 compilation (configured in foundry.toml profile)");
         
@@ -342,6 +342,11 @@ contract Deploy is Script {
 
     // Test deployment function
     function testDeployment(address factory, address template) external view returns (bool) {
+        // Check if factory is a contract address
+        if (factory.code.length == 0) {
+            return false;
+        }
+
         try TokenFactory(factory).getServiceFee() returns (uint256) {
             try TokenFactory(factory).getAllTemplates() returns (bytes32[] memory templates) {
                 return templates.length > 0 && template != address(0);

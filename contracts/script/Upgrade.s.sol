@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 import "../src/TokenFactory.sol";
 import "../src/ERC20Template.sol";
 
@@ -351,7 +351,9 @@ contract Upgrade is Script {
 
         // Upgrade each proxy
         for (uint256 i = 0; i < proxies.length; i++) {
-            console.log("Upgrading proxy", i + 1, "of", proxies.length, ":", proxies[i]);
+            console.log("Upgrading proxy", i + 1);
+            console.log("Total proxies:", proxies.length);
+            console.log("Proxy address:", proxies[i]);
             
             try TokenFactory(proxies[i]).upgradeToAndCall(newImplementation, "") {
                 console.log("  SUCCESS: Proxy upgraded");

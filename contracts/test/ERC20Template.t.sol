@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "../src/ERC20Template.sol";
 import "../src/interfaces/IERC20Template.sol";
 
@@ -14,13 +15,25 @@ import "../src/interfaces/IERC20Template.sol";
  * @notice These tests should now PASS with the real implementation
  */
 contract ERC20TemplateTest is Test {
+    // Events (matching IERC20Template)
+    event TokenInitialized(string name, string symbol, uint256 totalSupply, uint8 decimals, address owner);
+
+    // Standard ERC20 events
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // Errors (matching IERC20Template)
+    error NotOwner();
+
     // Test accounts
     address public owner = address(0x1);
     address public user1 = address(0x2);
     address public user2 = address(0x3);
     address public user3 = address(0x4);
 
-    // Contract instance
+    // Contract instances
+    ERC20Template public templateImplementation;
     ERC20Template public template;
 
     // Test constants for XSC network compatibility
@@ -35,7 +48,8 @@ contract ERC20TemplateTest is Test {
 
     function setUp() public {
         vm.startPrank(owner);
-        template = new ERC20Template();
+        // Deploy implementation contract
+        templateImplementation = new ERC20Template();
         vm.stopPrank();
     }
 
@@ -44,8 +58,12 @@ contract ERC20TemplateTest is Test {
     function test_Initialize_BasicParameters() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         vm.expectEmit(true, true, true, true);
-        emit IERC20Template.Initialized(
+        emit TokenInitialized(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -53,7 +71,7 @@ contract ERC20TemplateTest is Test {
             owner
         );
 
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -72,8 +90,12 @@ contract ERC20TemplateTest is Test {
     function test_Initialize_OnlyOnce() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         // First initialization should succeed
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -88,7 +110,7 @@ contract ERC20TemplateTest is Test {
 
         // Second initialization should revert
         vm.expectRevert();
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             "Second Token",
             "SECOND",
             500000 * 10**18,
@@ -107,8 +129,12 @@ contract ERC20TemplateTest is Test {
     function test_Initialize_WithZeroSupply() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         vm.expectRevert("Invalid total supply");
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             0, // zero supply
@@ -129,28 +155,28 @@ contract ERC20TemplateTest is Test {
     function test_Name() public {
         _initializeBasicTemplate();
 
-        string memory name = IERC20Template(address(template)).name();
+        string memory name = template.name();
         assertEq(name, TOKEN_NAME);
     }
 
     function test_Symbol() public {
         _initializeBasicTemplate();
 
-        string memory symbol = IERC20Template(address(template)).symbol();
+        string memory symbol = template.symbol();
         assertEq(symbol, TOKEN_SYMBOL);
     }
 
     function test_Decimals() public {
         _initializeBasicTemplate();
 
-        uint8 decimals = IERC20Template(address(template)).decimals();
+        uint8 decimals = template.decimals();
         assertEq(decimals, DECIMALS);
     }
 
     function test_TotalSupply() public {
         _initializeBasicTemplate();
 
-        uint256 totalSupply = IERC20Template(address(template)).totalSupply();
+        uint256 totalSupply = template.totalSupply();
         assertEq(totalSupply, INITIAL_SUPPLY);
     }
 
@@ -159,14 +185,14 @@ contract ERC20TemplateTest is Test {
     function test_InitialBalance() public {
         _initializeBasicTemplate();
 
-        uint256 ownerBalance = IERC20Template(address(template)).balanceOf(owner);
+        uint256 ownerBalance = template.balanceOf(owner);
         assertEq(ownerBalance, INITIAL_SUPPLY);
     }
 
     function test_ZeroBalanceForNonOwner() public {
         _initializeBasicTemplate();
 
-        uint256 userBalance = IERC20Template(address(template)).balanceOf(user1);
+        uint256 userBalance = template.balanceOf(user1);
         assertEq(userBalance, 0);
     }
 
@@ -179,13 +205,13 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit IERC20.Transfer(owner, user1, transferAmount);
+        emit Transfer(owner, user1, transferAmount);
 
-        bool success = IERC20Template(address(template)).transfer(user1, transferAmount);
+        bool success = template.transfer(user1, transferAmount);
         assertTrue(success);
 
-        assertEq(IERC20Template(address(template)).balanceOf(owner), INITIAL_SUPPLY - transferAmount);
-        assertEq(IERC20Template(address(template)).balanceOf(user1), transferAmount);
+        assertEq(template.balanceOf(owner), INITIAL_SUPPLY - transferAmount);
+        assertEq(template.balanceOf(user1), transferAmount);
 
         vm.stopPrank();
     }
@@ -196,7 +222,7 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(user1); // user1 has no balance
 
         vm.expectRevert();
-        IERC20Template(address(template)).transfer(user2, 1000);
+        template.transfer(user2, 1000);
 
         vm.stopPrank();
     }
@@ -207,7 +233,7 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         vm.expectRevert();
-        IERC20Template(address(template)).transfer(address(0), 1000);
+        template.transfer(address(0), 1000);
 
         vm.stopPrank();
     }
@@ -217,12 +243,12 @@ contract ERC20TemplateTest is Test {
 
         vm.startPrank(owner);
 
-        bool success = IERC20Template(address(template)).transfer(user1, 0);
+        bool success = template.transfer(user1, 0);
         assertTrue(success);
 
         // Balances should remain unchanged
-        assertEq(IERC20Template(address(template)).balanceOf(owner), INITIAL_SUPPLY);
-        assertEq(IERC20Template(address(template)).balanceOf(user1), 0);
+        assertEq(template.balanceOf(owner), INITIAL_SUPPLY);
+        assertEq(template.balanceOf(user1), 0);
 
         vm.stopPrank();
     }
@@ -236,12 +262,12 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit IERC20.Approval(owner, user1, approvalAmount);
+        emit Approval(owner, user1, approvalAmount);
 
-        bool success = IERC20Template(address(template)).approve(user1, approvalAmount);
+        bool success = template.approve(user1, approvalAmount);
         assertTrue(success);
 
-        uint256 allowance = IERC20Template(address(template)).allowance(owner, user1);
+        uint256 allowance = template.allowance(owner, user1);
         assertEq(allowance, approvalAmount);
 
         vm.stopPrank();
@@ -252,10 +278,10 @@ contract ERC20TemplateTest is Test {
 
         vm.startPrank(owner);
 
-        bool success = IERC20Template(address(template)).approve(user1, 0);
+        bool success = template.approve(user1, 0);
         assertTrue(success);
 
-        uint256 allowance = IERC20Template(address(template)).allowance(owner, user1);
+        uint256 allowance = template.allowance(owner, user1);
         assertEq(allowance, 0);
 
         vm.stopPrank();
@@ -267,7 +293,7 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         vm.expectRevert();
-        IERC20Template(address(template)).approve(address(0), 1000);
+        template.approve(address(0), 1000);
 
         vm.stopPrank();
     }
@@ -281,24 +307,24 @@ contract ERC20TemplateTest is Test {
 
         // Owner approves user1 to spend tokens
         vm.startPrank(owner);
-        IERC20Template(address(template)).approve(user1, approvalAmount);
+        template.approve(user1, approvalAmount);
         vm.stopPrank();
 
         // User1 transfers tokens from owner to user2
         vm.startPrank(user1);
 
         vm.expectEmit(true, true, true, true);
-        emit IERC20.Transfer(owner, user2, transferAmount);
+        emit Transfer(owner, user2, transferAmount);
 
-        bool success = IERC20Template(address(template)).transferFrom(owner, user2, transferAmount);
+        bool success = template.transferFrom(owner, user2, transferAmount);
         assertTrue(success);
 
         // Check balances
-        assertEq(IERC20Template(address(template)).balanceOf(owner), INITIAL_SUPPLY - transferAmount);
-        assertEq(IERC20Template(address(template)).balanceOf(user2), transferAmount);
+        assertEq(template.balanceOf(owner), INITIAL_SUPPLY - transferAmount);
+        assertEq(template.balanceOf(user2), transferAmount);
 
         // Check remaining allowance
-        uint256 remainingAllowance = IERC20Template(address(template)).allowance(owner, user1);
+        uint256 remainingAllowance = template.allowance(owner, user1);
         assertEq(remainingAllowance, approvalAmount - transferAmount);
 
         vm.stopPrank();
@@ -310,13 +336,13 @@ contract ERC20TemplateTest is Test {
         uint256 transferAmount = 2000 * 10**18; // More than approved
 
         vm.startPrank(owner);
-        IERC20Template(address(template)).approve(user1, approvalAmount);
+        template.approve(user1, approvalAmount);
         vm.stopPrank();
 
         vm.startPrank(user1);
 
         vm.expectRevert();
-        IERC20Template(address(template)).transferFrom(owner, user2, transferAmount);
+        template.transferFrom(owner, user2, transferAmount);
 
         vm.stopPrank();
     }
@@ -326,13 +352,13 @@ contract ERC20TemplateTest is Test {
         uint256 transferAmount = INITIAL_SUPPLY + 1; // More than owner has
 
         vm.startPrank(owner);
-        IERC20Template(address(template)).approve(user1, transferAmount);
+        template.approve(user1, transferAmount);
         vm.stopPrank();
 
         vm.startPrank(user1);
 
         vm.expectRevert();
-        IERC20Template(address(template)).transferFrom(owner, user2, transferAmount);
+        template.transferFrom(owner, user2, transferAmount);
 
         vm.stopPrank();
     }
@@ -342,7 +368,7 @@ contract ERC20TemplateTest is Test {
     function test_Owner_Initial() public {
         _initializeBasicTemplate();
 
-        address currentOwner = IERC20Template(address(template)).owner();
+        address currentOwner = template.owner();
         assertEq(currentOwner, owner);
     }
 
@@ -352,11 +378,11 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        // Note: OwnershipTransferred event is emitted by OwnableUpgradeable
+        emit OwnershipTransferred(owner, user1);
 
-        IERC20Template(address(template)).transferOwnership(user1);
+        template.transferOwnership(user1);
 
-        address currentOwner = IERC20Template(address(template)).owner();
+        address currentOwner = template.owner();
         assertEq(currentOwner, user1);
 
         vm.stopPrank();
@@ -367,8 +393,8 @@ contract ERC20TemplateTest is Test {
 
         vm.startPrank(user1); // Not the owner
 
-        vm.expectRevert(abi.encodeWithSelector(IERC20Template.NotOwner.selector));
-        IERC20Template(address(template)).transferOwnership(user2);
+        vm.expectRevert(abi.encodeWithSelector(NotOwner.selector));
+        template.transferOwnership(user2);
 
         vm.stopPrank();
     }
@@ -379,9 +405,9 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         // Note: OwnershipTransferred event is emitted by OwnableUpgradeable
-        IERC20Template(address(template)).renounceOwnership();
+        template.renounceOwnership();
 
-        address currentOwner = IERC20Template(address(template)).owner();
+        address currentOwner = template.owner();
         assertEq(currentOwner, address(0));
 
         vm.stopPrank();
@@ -392,11 +418,11 @@ contract ERC20TemplateTest is Test {
     function test_FeatureFlags_Basic() public {
         _initializeBasicTemplate();
 
-        assertFalse(IERC20Template(address(template)).isMintable());
-        assertFalse(IERC20Template(address(template)).isBurnable());
-        assertFalse(IERC20Template(address(template)).isPausable());
-        assertFalse(IERC20Template(address(template)).isCapped());
-        assertEq(IERC20Template(address(template)).getMaxSupply(), 0);
+        assertFalse(template.isMintable());
+        assertFalse(template.isBurnable());
+        assertFalse(template.isPausable());
+        assertFalse(template.isCapped());
+        assertEq(template.getMaxSupply(), 0);
     }
 
     // ==================== XSC NETWORK COMPATIBILITY TESTS ====================
@@ -404,8 +430,12 @@ contract ERC20TemplateTest is Test {
     function test_XSC_MaxSupplyCompatibility() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         // Test with XSC maximum supply limit
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             XSC_MAX_SUPPLY,
@@ -418,7 +448,7 @@ contract ERC20TemplateTest is Test {
             XSC_MAX_SUPPLY
         );
 
-        uint256 totalSupply = IERC20Template(address(template)).totalSupply();
+        uint256 totalSupply = template.totalSupply();
         assertEq(totalSupply, XSC_MAX_SUPPLY);
 
         vm.stopPrank();
@@ -427,8 +457,12 @@ contract ERC20TemplateTest is Test {
     function test_XSC_LargeTransfers() public {
         vm.startPrank(owner);
 
+        // Create clone
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
         uint256 largeAmount = 1000000000 * 10**18; // 1B tokens
-        IERC20Template(address(template)).initialize(
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             largeAmount,
@@ -443,10 +477,10 @@ contract ERC20TemplateTest is Test {
 
         // Test large transfer
         uint256 transferAmount = 500000000 * 10**18; // 500M tokens
-        bool success = IERC20Template(address(template)).transfer(user1, transferAmount);
+        bool success = template.transfer(user1, transferAmount);
         assertTrue(success);
 
-        assertEq(IERC20Template(address(template)).balanceOf(user1), transferAmount);
+        assertEq(template.balanceOf(user1), transferAmount);
 
         vm.stopPrank();
     }
@@ -460,8 +494,10 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         uint256 gasBefore = gasleft();
-        IERC20Template(address(template)).transfer(user1, transferAmount);
+        bool success = template.transfer(user1, transferAmount);
         uint256 gasUsed = gasBefore - gasleft();
+
+        assertTrue(success, "Transfer should succeed");
 
         // XSC network has lower gas costs - test should pass with reasonable limits
         assertTrue(gasUsed < 100000, "Transfer gas usage too high for XSC network");
@@ -476,7 +512,7 @@ contract ERC20TemplateTest is Test {
         vm.startPrank(owner);
 
         uint256 gasBefore = gasleft();
-        IERC20Template(address(template)).approve(user1, approvalAmount);
+        template.approve(user1, approvalAmount);
         uint256 gasUsed = gasBefore - gasleft();
 
         assertTrue(gasUsed < 100000, "Approval gas usage too high for XSC network");
@@ -489,7 +525,11 @@ contract ERC20TemplateTest is Test {
     function _initializeBasicTemplate() internal {
         vm.startPrank(owner);
 
-        IERC20Template(address(template)).initialize(
+        // Create clone and initialize
+        address clone = Clones.clone(address(templateImplementation));
+        template = ERC20Template(clone);
+
+        template.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
             INITIAL_SUPPLY,
@@ -515,11 +555,11 @@ contract ERC20TemplateTest is Test {
 
         vm.startPrank(owner);
 
-        bool success = IERC20Template(address(template)).transfer(user1, amount);
+        bool success = template.transfer(user1, amount);
         assertTrue(success);
 
-        assertEq(IERC20Template(address(template)).balanceOf(owner), INITIAL_SUPPLY - amount);
-        assertEq(IERC20Template(address(template)).balanceOf(user1), amount);
+        assertEq(template.balanceOf(owner), INITIAL_SUPPLY - amount);
+        assertEq(template.balanceOf(user1), amount);
 
         vm.stopPrank();
     }
@@ -531,10 +571,10 @@ contract ERC20TemplateTest is Test {
 
         vm.startPrank(owner);
 
-        bool success = IERC20Template(address(template)).approve(user1, amount);
+        bool success = template.approve(user1, amount);
         assertTrue(success);
 
-        uint256 allowance = IERC20Template(address(template)).allowance(owner, user1);
+        uint256 allowance = template.allowance(owner, user1);
         assertEq(allowance, amount);
 
         vm.stopPrank();
@@ -544,19 +584,19 @@ contract ERC20TemplateTest is Test {
 
     function test_TotalSupplyNeverChanges() public {
         _initializeBasicTemplate();
-        uint256 totalSupply = IERC20Template(address(template)).totalSupply();
+        uint256 totalSupply = template.totalSupply();
         assertEq(totalSupply, INITIAL_SUPPLY);
     }
 
     function test_SumOfBalancesEqualsTotalSupply() public {
         _initializeBasicTemplate();
-        uint256 ownerBalance = IERC20Template(address(template)).balanceOf(owner);
-        uint256 user1Balance = IERC20Template(address(template)).balanceOf(user1);
-        uint256 user2Balance = IERC20Template(address(template)).balanceOf(user2);
-        uint256 user3Balance = IERC20Template(address(template)).balanceOf(user3);
+        uint256 ownerBalance = template.balanceOf(owner);
+        uint256 user1Balance = template.balanceOf(user1);
+        uint256 user2Balance = template.balanceOf(user2);
+        uint256 user3Balance = template.balanceOf(user3);
 
         uint256 sumOfBalances = ownerBalance + user1Balance + user2Balance + user3Balance;
-        uint256 totalSupply = IERC20Template(address(template)).totalSupply();
+        uint256 totalSupply = template.totalSupply();
 
         assertEq(sumOfBalances, totalSupply);
     }
