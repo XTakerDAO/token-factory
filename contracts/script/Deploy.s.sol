@@ -223,7 +223,7 @@ contract Deploy is Script {
 
     function saveDeploymentInfo(string memory network, address factory, address template) internal {
         string memory json = "deployment";
-        
+
         vm.serializeString(json, "network", network);
         vm.serializeUint(json, "chainId", block.chainid);
         vm.serializeAddress(json, "factory", factory);
@@ -232,14 +232,22 @@ contract Deploy is Script {
         vm.serializeAddress(json, "deployer", msg.sender);
         vm.serializeUint(json, "timestamp", block.timestamp);
         vm.serializeUint(json, "blockNumber", block.number);
-        
+
         string memory finalJson = vm.serializeUint(json, "serviceFee", TokenFactory(factory).getServiceFee());
-        
-        // Create deployments directory if it doesn't exist
+
+        // Always output the deployment info for manual saving
         string memory filename = string.concat("./deployments/", network, ".json");
+
+        console.log("\n=== DEPLOYMENT INFO ===");
+        console.log("File:", filename);
+        console.log("Content:");
+        console.log(finalJson);
+
+        // Try to write to file (may fail due to permissions)
+        // Note: vm.writeJson failure will be caught by the script runner
+        console.log("\nAttempting to save deployment file...");
         vm.writeJson(finalJson, filename);
-        
-        console.log("\nDeployment info saved to:", filename);
+        console.log("Deployment info saved to:", filename);
     }
 
     // Utility functions for testing and custom deployments

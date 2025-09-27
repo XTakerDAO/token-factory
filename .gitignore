@@ -1,5 +1,5 @@
-# Token Factory DApp - Gitignore Configuration
-# Comprehensive gitignore for Next.js + Foundry + TypeScript project
+# Token Factory Contracts - Gitignore Configuration
+# Smart Contract Repository using Foundry
 
 # ============== Dependencies ==============
 node_modules/
@@ -7,12 +7,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# ============== Next.js Build Outputs ==============
-.next/
-out/
-build/
-dist/
 
 # ============== Environment Variables ==============
 .env
@@ -22,24 +16,60 @@ dist/
 .env.production.local
 .env.production
 
-# Frontend specific env files
-frontend/.env.local
-frontend/.env.production
-
 # Contract specific env files
 contracts/.env
 contracts/.env.local
 
-# ============== Testing ==============
-coverage/
-.nyc_output/
-test-results/
-playwright-report/
-blob-report/
-playwright/.cache/
+# ============== Foundry & Blockchain ==============
+# Foundry cache and artifacts
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+cache/
+out/
+broadcast/
 
-# Jest
-jest.config.js.bak
+# Deployment artifacts
+deployments/localhost/
+deployments/hardhat/
+
+# Foundry broadcast logs (keep mainnet/testnet broadcasts)
+broadcast/*/31337/
+
+# Account private keys - NEVER COMMIT THESE
+accounts.txt
+mnemonic.txt
+.secret
+**/private-keys.txt
+**/secrets.json
+**/.secret
+**/mnemonic.txt
+
+# Gas reports
+gas-report.txt
+.gas-snapshot
+
+# Coverage reports
+coverage.json
+coverage/
+coverageEnv/
+lcov.info
+
+# Slither analysis
+slither.db.json
+.slither/
+
+# ============== Security & API Keys ==============
+# API keys and tokens - NEVER COMMIT
+.env.keys
+api-keys.json
+.api-keys
+etherscan-api-key.txt
+bscscan-api-key.txt
+
+# ============== Testing ==============
+test-results/
+.nyc_output/
 
 # ============== IDE & Editor Files ==============
 .vscode/
@@ -53,7 +83,6 @@ jest.config.js.bak
 .*.swo
 
 # Emacs
-*~
 \#*\#
 /.emacs.desktop
 /.emacs.desktop.lock
@@ -75,40 +104,23 @@ Desktop.ini
 # Windows
 $RECYCLE.BIN/
 
-# Linux
-*~
-
 # ============== Logs ==============
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
 
 # Runtime data
-pids
+pids/
 *.pid
 *.seed
 *.pid.lock
 
-# ============== TypeScript ==============
-*.tsbuildinfo
-.tsbuildinfo
-
 # ============== Cache Directories ==============
 .cache/
-.parcel-cache/
 .npm
 .eslintcache
-.stylelintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -118,40 +130,6 @@ pids
 
 # Yarn Integrity file
 .yarn-integrity
-
-# ============== Foundry & Blockchain ==============
-# Foundry cache and artifacts
-cache/
-out/
-broadcast/
-deployments/localhost/
-deployments/hardhat/
-
-# Foundry broadcast logs
-broadcast/*/31337/
-
-# Account private keys - NEVER COMMIT
-accounts.txt
-mnemonic.txt
-.secret
-
-# Gas reports
-gas-report.txt
-.gas-snapshot
-
-# ============== Smart Contract Specific ==============
-# Hardhat (if using alongside Foundry)
-artifacts/
-typechain/
-typechain-types/
-
-# Coverage reports
-coverage.json
-coverageEnv/
-
-# Slither analysis
-slither.db.json
-.slither/
 
 # ============== Temporary Files ==============
 tmp/
@@ -167,27 +145,12 @@ temp/
 .yarn/install-state.gz
 .pnp.*
 
-# ============== Deployment & Production ==============
-# Vercel
-.vercel
-
-# Netlify
-.netlify/
-
-# Docker
-Dockerfile.prod
-docker-compose.override.yml
-
-# ============== Security & Sensitive Data ==============
-# Never commit private keys or sensitive data
-**/private-keys.txt
-**/secrets.json
-**/.secret
-**/mnemonic.txt
-
-# API keys and tokens
-.env.keys
-api-keys.json
+# ============== Documentation Temp Files ==============
+.playwright-mcp/
+.serena/
+.cursor/
+.superdesign/
+.windsurfrules
 
 # ============== Project Specific ==============
 # Local development databases
@@ -209,55 +172,21 @@ settings.local.json
 *.tar.gz
 *.rar
 
-# ============== Documentation Temp Files ==============
-# Temporary documentation files
-.docusaurus/
-docs/.docusaurus/
-.playwright-mcp/
-.serena/
-.cursor/
-.superdesign/
-.windsurfrules
-
-# ============== Performance & Profiling ==============
-# Lighthouse reports
-lighthouse-report.html
-lighthouse-report.json
-
-# Bundle analyzer
-bundle-analyzer-report.html
-
-# ============== Testing Screenshots ==============
-# Playwright screenshots from failed tests
-test-results/
-playwright-report/
-screenshots/
-
 # ============== Miscellaneous ==============
 # Local notes and todos (not project todos)
 NOTES.md
 TODO.personal.md
 scratch.md
 
-# System files
-Thumbs.db
-.DS_Store
-
 # ============== Keep These Files ==============
 # Force include important config files
 !.gitkeep
 !.env.example
-!.env.local.example
 !foundry.toml
 !package.json
-!tsconfig.json
-!next.config.js
-!tailwind.config.js
-!playwright.config.ts
 
-# Force include important directories
+# Force include important contract directories
 !contracts/src/
 !contracts/test/
 !contracts/script/
-!frontend/src/
-!frontend/tests/
+!contracts/lib/

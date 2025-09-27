@@ -49,4 +49,14 @@ line_length = 120
 tab_width = 4
 bracket_spacing = true
 
+# File system permissions
+fs_permissions = [
+    { access = "read-write", path = "./deployments" },
+    { access = "read-write", path = "./out" },
+    { access = "read", path = "./src" },
+    { access = "read", path = "./script" },
+    { access = "read-write", path = "." },
+    { access = "read-write", path = "../deployments" }
+]
+
 # Lint configuration handled via ignored_error_codes in [profile.default]
