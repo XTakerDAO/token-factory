@@ -1,28 +1,28 @@
-# Token Factory API Documentation
+# Token Factory API 文档
 
-Complete API reference for smart contracts and frontend integration points.
+Token Factory 智能合约和前端集成的完整 API 参考文档。
 
-## 📋 Table of Contents
+## 📋 目录
 
-- [Smart Contract APIs](#smart-contract-apis)
-  - [TokenFactory Contract](#tokenfactory-contract)
-  - [ERC20Template Contract](#erc20template-contract)
-- [Frontend Integration APIs](#frontend-integration-apis)
+- [智能合约 API](#智能合约-api)
+  - [TokenFactory 合约](#tokenfactory-合约)
+  - [ERC20Template 合约](#erc20template-合约)
+- [前端集成 API](#前端集成-api)
   - [Web3 Hooks](#web3-hooks)
-  - [State Management](#state-management)
-- [Network Configuration](#network-configuration)
-- [Error Handling](#error-handling)
+  - [状态管理](#状态管理)
+- [网络配置](#网络配置)
+- [错误处理](#错误处理)
 
-## 🔗 Smart Contract APIs
+## 🔗 智能合约 API
 
-### TokenFactory Contract
+### TokenFactory 合约
 
-**Contract Address**: See [deployments](./contracts/deployments/) for network-specific addresses
+**合约地址**: 请查看 [deployments](./contracts/deployments/) 获取具体网络的合约地址
 
-#### Core Functions
+#### 核心功能
 
 ##### createToken
-Creates a new ERC20 token with specified configuration.
+创建具有指定配置的新 ERC20 代币。
 
 ```solidity
 function createToken(TokenConfig calldata config)
@@ -31,35 +31,35 @@ function createToken(TokenConfig calldata config)
     returns (address tokenAddress)
 ```
 
-**Parameters:**
-- `config` (TokenConfig): Token configuration structure
+**参数:**
+- `config` (TokenConfig): 代币配置结构体
 
-**TokenConfig Structure:**
+**TokenConfig 结构体:**
 ```solidity
 struct TokenConfig {
-    string name;           // Token name (max 50 chars)
-    string symbol;         // Token symbol (max 10 chars)
-    uint256 totalSupply;   // Initial supply (in wei units)
-    uint8 decimals;        // Number of decimals (max 18)
-    address initialOwner;  // Initial owner address
-    bool mintable;         // Enable minting capability
-    bool burnable;         // Enable burning capability
-    bool pausable;         // Enable pause capability
-    bool capped;           // Enable supply cap
-    uint256 maxSupply;     // Max supply if capped (0 if not)
+    string name;           // 代币名称 (最大50字符)
+    string symbol;         // 代币符号 (最大10字符)
+    uint256 totalSupply;   // 初始供应量 (wei单位)
+    uint8 decimals;        // 小数位数 (最大18)
+    address initialOwner;  // 初始所有者地址
+    bool mintable;         // 启用铸造功能
+    bool burnable;         // 启用销毁功能
+    bool pausable;         // 启用暂停功能
+    bool capped;           // 启用供应量上限
+    uint256 maxSupply;     // 最大供应量 (如果启用上限，0表示未启用)
 }
 ```
 
-**Returns:**
-- `tokenAddress` (address): Address of deployed token
+**返回值:**
+- `tokenAddress` (address): 部署的代币合约地址
 
-**Reverts:**
-- `InvalidConfiguration()`: Invalid configuration parameters
-- `InsufficientServiceFee()`: Insufficient fee payment
-- `SymbolAlreadyExists()`: Symbol already in use
-- `TemplateNotFound()`: Template not available
+**错误类型:**
+- `InvalidConfiguration()`: 配置参数无效
+- `InsufficientServiceFee()`: 服务费用不足
+- `SymbolAlreadyExists()`: 代币符号已存在
+- `TemplateNotFound()`: 模板未找到
 
-**Events:**
+**事件:**
 ```solidity
 event TokenCreated(
     address indexed tokenAddress,
@@ -68,14 +68,14 @@ event TokenCreated(
     string symbol,
     uint256 totalSupply,
     uint8 decimals,
-    bytes32 configHash
+    bytes32 indexed configHash
 );
 ```
 
-**Example Usage:**
+**使用示例:**
 ```javascript
 const config = {
-    name: "My Token",
+    name: "我的代币",
     symbol: "MT",
     totalSupply: ethers.parseEther("1000000"),
     decimals: 18,
@@ -92,126 +92,8 @@ const tx = await tokenFactory.createToken(config, {
 });
 ```
 
-##### Template Management
-
-###### addTemplate
-Adds or updates a token template (owner only).
-
-```solidity
-function addTemplate(bytes32 templateId, address implementation) external
-```
-
-**Parameters:**
-- `templateId` (bytes32): Unique template identifier
-- `implementation` (address): Template contract address
-
-**Events:**
-```solidity
-event TemplateUpdated(bytes32 indexed templateId, address implementation);
-```
-
-###### removeTemplate
-Removes a token template (owner only).
-
-```solidity
-function removeTemplate(bytes32 templateId) external
-```
-
-###### getTemplate
-Gets template implementation address.
-
-```solidity
-function getTemplate(bytes32 templateId) external view returns (address)
-```
-
-###### getAllTemplates
-Gets all available template IDs.
-
-```solidity
-function getAllTemplates() external view returns (bytes32[] memory)
-```
-
-##### Configuration Management
-
-###### setServiceFee
-Updates service fee (owner only).
-
-```solidity
-function setServiceFee(uint256 newFee) external
-```
-
-**Parameters:**
-- `newFee` (uint256): New fee amount in wei
-
-**Events:**
-```solidity
-event ServiceFeeUpdated(uint256 newFee, address feeRecipient);
-```
-
-###### setFeeRecipient
-Updates fee recipient (owner only).
-
-```solidity
-function setFeeRecipient(address newRecipient) external
-```
-
-**Events:**
-```solidity
-event FeeRecipientUpdated(address newRecipient);
-```
-
-##### View Functions
-
-###### getServiceFee
-Gets current service fee.
-
-```solidity
-function getServiceFee() external view returns (uint256)
-```
-
-###### getFeeRecipient
-Gets fee recipient address.
-
-```solidity
-function getFeeRecipient() external view returns (address)
-```
-
-###### getTokensByCreator
-Gets tokens created by a specific address.
-
-```solidity
-function getTokensByCreator(address creator) external view returns (address[] memory)
-```
-
-###### isTokenDeployed
-Checks if a symbol is already deployed.
-
-```solidity
-function isTokenDeployed(string calldata symbol) external view returns (bool)
-```
-
-###### calculateDeploymentCost
-Estimates deployment cost for a configuration.
-
-```solidity
-function calculateDeploymentCost(TokenConfig calldata config)
-    external
-    view
-    returns (uint256 gasCost, uint256 serviceFee)
-```
-
-###### validateConfiguration
-Validates a token configuration.
-
-```solidity
-function validateConfiguration(TokenConfig calldata config)
-    external
-    pure
-    returns (bool valid, string memory reason)
-```
-
-###### predictTokenAddress
-Predicts the deployment address for a configuration.
+##### predictTokenAddress
+预测指定配置的代币部署地址（CREATE2）。
 
 ```solidity
 function predictTokenAddress(TokenConfig calldata config, address creator)
@@ -220,61 +102,238 @@ function predictTokenAddress(TokenConfig calldata config, address creator)
     returns (address)
 ```
 
-##### Statistics
+**参数:**
+- `config` (TokenConfig): 代币配置
+- `creator` (address): 创建者地址
+
+**返回值:**
+- `address`: 预测的部署地址
+
+**使用示例:**
+```javascript
+const predictedAddress = await tokenFactory.predictTokenAddress(config, userAddress);
+console.log("预测地址:", predictedAddress);
+```
+
+##### 模板管理
+
+###### addTemplate
+添加或更新代币模板（仅所有者）。
+
+```solidity
+function addTemplate(bytes32 templateId, address implementation) external
+```
+
+**参数:**
+- `templateId` (bytes32): 唯一模板标识符
+- `implementation` (address): 模板合约地址
+
+**模板常量:**
+```solidity
+bytes32 public constant BASIC_ERC20 = keccak256("BASIC_ERC20");
+bytes32 public constant MINTABLE_ERC20 = keccak256("MINTABLE_ERC20");
+bytes32 public constant FULL_FEATURED = keccak256("FULL_FEATURED");
+```
+
+**事件:**
+```solidity
+event TemplateUpdated(bytes32 indexed templateId, address implementation);
+event TemplateAdded(bytes32 indexed templateId, address implementation);
+```
+
+###### removeTemplate
+移除代币模板（仅所有者）。
+
+```solidity
+function removeTemplate(bytes32 templateId) external
+```
+
+###### getTemplate
+获取模板实现地址。
+
+```solidity
+function getTemplate(bytes32 templateId) external view returns (address)
+```
+
+###### getAllTemplates
+获取所有可用模板ID。
+
+```solidity
+function getAllTemplates() external view returns (bytes32[] memory)
+```
+
+##### 配置管理
+
+###### setServiceFee
+更新服务费用（仅所有者）。
+
+```solidity
+function setServiceFee(uint256 newFee) external
+```
+
+**参数:**
+- `newFee` (uint256): 新的费用金额（wei）
+
+**事件:**
+```solidity
+event ServiceFeeUpdated(uint256 newFee, address feeRecipient);
+```
+
+###### setFeeRecipient
+更新费用接收者（仅所有者）。
+
+```solidity
+function setFeeRecipient(address newRecipient) external
+```
+
+**事件:**
+```solidity
+event FeeRecipientUpdated(address indexed newRecipient);
+```
+
+###### pause
+暂停工厂合约（仅所有者）。
+
+```solidity
+function pause() external
+```
+
+###### unpause
+恢复工厂合约（仅所有者）。
+
+```solidity
+function unpause() external
+```
+
+###### withdrawFees
+紧急提取累积费用（仅所有者）。
+
+```solidity
+function withdrawFees() external
+```
+
+##### 查询功能
+
+###### getServiceFee
+获取当前服务费用。
+
+```solidity
+function getServiceFee() external view returns (uint256)
+```
+
+###### getFeeRecipient
+获取费用接收者地址。
+
+```solidity
+function getFeeRecipient() external view returns (address)
+```
+
+###### getTokensByCreator
+获取指定地址创建的代币列表。
+
+```solidity
+function getTokensByCreator(address creator) external view returns (address[] memory)
+```
+
+###### isTokenDeployed
+检查代币符号是否已被部署。
+
+```solidity
+function isTokenDeployed(string calldata symbol) external view returns (bool)
+```
+
+###### calculateDeploymentCost
+估算配置的部署成本。
+
+```solidity
+function calculateDeploymentCost(TokenConfig calldata config)
+    external
+    view
+    returns (uint256 gasCost, uint256 serviceFee)
+```
+
+**返回值:**
+- `gasCost` (uint256): 估算的gas成本
+- `serviceFee` (uint256): 服务费用
+
+###### validateConfiguration
+验证代币配置。
+
+```solidity
+function validateConfiguration(TokenConfig calldata config)
+    external
+    pure
+    returns (bool valid, string memory reason)
+```
+
+**返回值:**
+- `valid` (bool): 配置是否有效
+- `reason` (string): 无效原因（如果有）
+
+##### 统计功能
 
 ###### getTotalTokensCreated
-Gets total number of tokens created.
+获取已创建代币总数。
 
 ```solidity
 function getTotalTokensCreated() external view returns (uint256)
 ```
 
 ###### getTokensCreatedByUser
-Gets number of tokens created by specific user.
+获取指定用户创建的代币数量。
 
 ```solidity
 function getTokensCreatedByUser(address user) external view returns (uint256)
 ```
 
 ###### getTotalFeesCollected
-Gets total fees collected by the factory.
+获取工厂收集的总费用。
 
 ```solidity
 function getTotalFeesCollected() external view returns (uint256)
 ```
 
-##### Network Support
+##### 网络支持
 
 ###### getChainId
-Gets current blockchain ID.
+获取当前区块链ID。
 
 ```solidity
 function getChainId() external view returns (uint256)
 ```
 
 ###### isChainSupported
-Checks if a chain ID is supported.
+检查链ID是否受支持。
 
 ```solidity
 function isChainSupported(uint256 chainId) external pure returns (bool)
 ```
 
-### ERC20Template Contract
+**支持的网络:**
+- Ethereum (1)
+- BSC (56)
+- Polygon (137)
+- Sepolia 测试网 (11155111)
+- BSC 测试网 (97)
+- XSC 测试网 (自定义)
+- Hardhat 本地网络 (31337)
 
-Standard ERC20 implementation with advanced features.
+### ERC20Template 合约
 
-#### Core Features
+标准ERC20实现，支持高级功能的代币模板。
 
-##### Initialization
-Initializes token with configuration.
+#### 核心功能
+
+##### 初始化
+使用配置初始化代币。
 
 ```solidity
 function initialize(
-    string memory name,
-    string memory symbol,
+    string calldata tokenName,
+    string calldata tokenSymbol,
     uint256 totalSupply,
-    uint8 decimals_,
-    address initialOwner,
+    uint8 tokenDecimals,
+    address tokenOwner,
     bool mintable,
     bool burnable,
     bool pausable,
@@ -283,10 +342,22 @@ function initialize(
 ) external
 ```
 
-##### Standard ERC20 Functions
+**事件:**
+```solidity
+event TokenInitialized(
+    string name,
+    string symbol,
+    uint256 totalSupply,
+    uint8 decimals,
+    address owner
+);
+event FeatureEnabled(string feature);
+```
+
+##### 标准 ERC20 功能
 
 ```solidity
-// Standard ERC20
+// 标准 ERC20
 function balanceOf(address account) external view returns (uint256)
 function totalSupply() external view returns (uint256)
 function transfer(address to, uint256 amount) external returns (bool)
@@ -294,62 +365,108 @@ function approve(address spender, uint256 amount) external returns (bool)
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 function allowance(address owner, address spender) external view returns (uint256)
 
-// ERC20 Metadata
+// ERC20 元数据
 function name() external view returns (string memory)
 function symbol() external view returns (string memory)
 function decimals() external view returns (uint8)
 ```
 
-##### Advanced Features
+##### 高级功能
 
-###### Minting (if enabled)
+###### 铸造功能（如果启用）
 ```solidity
-function mint(address to, uint256 amount) external // Owner only
+function mint(address to, uint256 amount) external // 仅所有者
 ```
 
-###### Burning (if enabled)
+**错误:**
+- `FeatureNotEnabled("mintable")`: 铸造功能未启用
+- `ExceedsMaxSupply()`: 超过最大供应量
+- `InvalidAmount()`: 金额无效
+
+###### 销毁功能（如果启用）
 ```solidity
 function burn(uint256 amount) external
 function burnFrom(address account, uint256 amount) external
 ```
 
-###### Pausing (if enabled)
+**错误:**
+- `FeatureNotEnabled("burnable")`: 销毁功能未启用
+
+###### 暂停功能（如果启用）
 ```solidity
-function pause() external // Owner only
-function unpause() external // Owner only
+function pause() external // 仅所有者
+function unpause() external // 仅所有者
 function paused() external view returns (bool)
 ```
 
-##### Feature Queries
+**错误:**
+- `FeatureNotEnabled("pausable")`: 暂停功能未启用
+- `TokenIsPaused()`: 代币已暂停
+
+##### 功能查询
+
+###### 单个功能查询
 ```solidity
 function isMintable() external view returns (bool)
 function isBurnable() external view returns (bool)
 function isPausable() external view returns (bool)
 function isCapped() external view returns (bool)
-function maxSupply() external view returns (uint256)
+function getMaxSupply() external view returns (uint256)
 ```
 
-## 🌐 Frontend Integration APIs
+###### 批量功能查询
+```solidity
+function getFeatureFlags() external view returns (
+    bool mintable,
+    bool burnable,
+    bool pausable,
+    bool capped
+)
+```
+
+**使用示例:**
+```javascript
+const [mintable, burnable, pausable, capped] = await token.getFeatureFlags();
+console.log("功能标志:", { mintable, burnable, pausable, capped });
+```
+
+##### 状态查询
+
+###### isInitialized
+检查合约是否已初始化。
+
+```solidity
+function isInitialized() external view returns (bool)
+```
+
+###### 代理模式支持
+```solidity
+function getImplementation() external view returns (address)
+function isProxy() external pure returns (bool)
+```
+
+## 🌐 前端集成 API
 
 ### Web3 Hooks
 
 #### useTokenFactory
-Hook for interacting with TokenFactory contract.
+与TokenFactory合约交互的Hook。
 
 ```typescript
 interface UseTokenFactoryReturn {
-  // Contract instance
+  // 合约实例
   contract: TokenFactory | null
 
-  // Read functions
+  // 读取功能
   getServiceFee: () => Promise<bigint>
   getTokensByCreator: (address: string) => Promise<string[]>
   validateConfiguration: (config: TokenConfig) => Promise<ValidationResult>
+  predictTokenAddress: (config: TokenConfig, creator: string) => Promise<string>
 
-  // Write functions
+  // 写入功能
   createToken: (config: TokenConfig) => Promise<TransactionResult>
 
-  // Loading states
+  // 加载状态
   isLoading: boolean
   error: Error | null
 }
@@ -357,42 +474,48 @@ interface UseTokenFactoryReturn {
 function useTokenFactory(): UseTokenFactoryReturn
 ```
 
-**Example:**
+**使用示例:**
 ```typescript
-const { createToken, getServiceFee, isLoading } = useTokenFactory();
+const { createToken, predictTokenAddress, getServiceFee, isLoading } = useTokenFactory();
 
 const handleCreate = async (config: TokenConfig) => {
   try {
+    // 预测地址
+    const predictedAddress = await predictTokenAddress(config, address);
+    console.log('预测地址:', predictedAddress);
+
+    // 创建代币
     const result = await createToken(config);
-    console.log('Token created:', result.tokenAddress);
+    console.log('代币已创建:', result.tokenAddress);
   } catch (error) {
-    console.error('Creation failed:', error);
+    console.error('创建失败:', error);
   }
 };
 ```
 
 #### useTokenCreation
-Hook for managing token creation workflow.
+管理代币创建工作流的Hook。
 
 ```typescript
 interface UseTokenCreationReturn {
-  // State
+  // 状态
   currentStep: number
   totalSteps: number
   configuration: TokenConfig
 
-  // Actions
+  // 操作
   setConfiguration: (config: Partial<TokenConfig>) => void
   nextStep: () => void
   prevStep: () => void
   resetWizard: () => void
 
-  // Validation
+  // 验证
   validateCurrentStep: () => Promise<boolean>
   canProceed: boolean
 
-  // Deployment
+  // 部署
   deployToken: () => Promise<TransactionResult>
+  predictAddress: () => Promise<string>
   isDeploying: boolean
   deploymentError: Error | null
 }
@@ -401,19 +524,19 @@ function useTokenCreation(): UseTokenCreationReturn
 ```
 
 #### useMultiChainDeployment
-Hook for deploying tokens across multiple networks.
+跨多个网络部署代币的Hook。
 
 ```typescript
 interface UseMultiChainDeploymentReturn {
-  // State
+  // 状态
   selectedNetworks: Network[]
   deploymentStatus: Record<number, DeploymentStatus>
 
-  // Actions
+  // 操作
   selectNetworks: (networks: Network[]) => void
   deployToNetworks: (config: TokenConfig) => Promise<MultiChainResult>
 
-  // Status
+  // 状态
   isDeploying: boolean
   completedDeployments: number
   totalDeployments: number
@@ -422,68 +545,90 @@ interface UseMultiChainDeploymentReturn {
 function useMultiChainDeployment(): UseMultiChainDeploymentReturn
 ```
 
-### State Management
+#### useFactoryStats
+工厂统计信息Hook。
 
-#### Token Configuration Store
+```typescript
+interface UseFactoryStatsReturn {
+  // 统计数据
+  totalTokensCreated: bigint
+  totalFeesCollected: bigint
+  userTokenCount: bigint
+
+  // 操作
+  refreshStats: () => Promise<void>
+
+  // 状态
+  isLoading: boolean
+  error: Error | null
+}
+
+function useFactoryStats(): UseFactoryStatsReturn
+```
+
+### 状态管理
+
+#### 代币配置存储
 
 ```typescript
 interface TokenConfigState {
-  // Current configuration
+  // 当前配置
   config: TokenConfig
 
-  // Validation
+  // 验证
   validation: ValidationState
 
-  // Actions
+  // 操作
   updateConfig: (updates: Partial<TokenConfig>) => void
   validateConfig: () => Promise<void>
   resetConfig: () => void
 
-  // Presets
+  // 预设
   loadPreset: (presetName: string) => void
   savePreset: (name: string) => void
   getPresets: () => ConfigPreset[]
 }
 
-// Usage
+// 使用方式
 const { config, updateConfig, validateConfig } = useTokenConfigStore();
 ```
 
-#### Wallet Store
+#### 钱包存储
 
 ```typescript
 interface WalletState {
-  // Connection
+  // 连接状态
   isConnected: boolean
   address: string | null
   chainId: number | null
 
-  // Network management
+  // 网络管理
   supportedNetworks: Network[]
   currentNetwork: Network | null
 
-  // Actions
+  // 操作
   connect: (connector?: string) => Promise<void>
   disconnect: () => Promise<void>
   switchNetwork: (chainId: number) => Promise<void>
 
-  // Token management
+  // 代币管理
   userTokens: Token[]
   refreshTokens: () => Promise<void>
 }
 
-// Usage
+// 使用方式
 const { isConnected, connect, switchNetwork } = useWalletStore();
 ```
 
-## 🌍 Network Configuration
+## 🌍 网络配置
 
-### Supported Networks
+### 支持的网络
 
 ```typescript
 interface Network {
   id: number
   name: string
+  displayName: string
   rpcUrl: string
   blockExplorer: string
   nativeCurrency: {
@@ -493,59 +638,91 @@ interface Network {
   }
   contracts: {
     tokenFactory: string
-    erc20Template: string
+    basicTemplate: string
+    mintableTemplate: string
+    fullFeaturedTemplate: string
   }
+  testnet: boolean
 }
 
 const NETWORKS: Record<number, Network> = {
   1: {
     id: 1,
-    name: "Ethereum Mainnet",
+    name: "ethereum",
+    displayName: "以太坊主网",
     rpcUrl: "https://mainnet.infura.io/v3/PROJECT_ID",
     blockExplorer: "https://etherscan.io",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     contracts: {
       tokenFactory: "0x...",
-      erc20Template: "0x..."
-    }
+      basicTemplate: "0x...",
+      mintableTemplate: "0x...",
+      fullFeaturedTemplate: "0x..."
+    },
+    testnet: false
   },
   56: {
     id: 56,
-    name: "BSC Mainnet",
+    name: "bsc",
+    displayName: "币安智能链",
     rpcUrl: "https://bsc-dataseed.binance.org",
     blockExplorer: "https://bscscan.com",
     nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
     contracts: {
       tokenFactory: "0x...",
-      erc20Template: "0x..."
-    }
+      basicTemplate: "0x...",
+      mintableTemplate: "0x...",
+      fullFeaturedTemplate: "0x..."
+    },
+    testnet: false
+  },
+  11155111: {
+    id: 11155111,
+    name: "sepolia",
+    displayName: "Sepolia 测试网",
+    rpcUrl: "https://sepolia.infura.io/v3/PROJECT_ID",
+    blockExplorer: "https://sepolia.etherscan.io",
+    nativeCurrency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
+    contracts: {
+      tokenFactory: "0x...",
+      basicTemplate: "0x...",
+      mintableTemplate: "0x...",
+      fullFeaturedTemplate: "0x..."
+    },
+    testnet: true
   }
-  // ... other networks
+  // ... 其他网络
 };
 ```
 
-### Network Utilities
+### 网络工具函数
 
 ```typescript
-// Get network configuration
+// 获取网络配置
 function getNetworkConfig(chainId: number): Network | null
 
-// Check if network is supported
+// 检查网络是否支持
 function isSupportedNetwork(chainId: number): boolean
 
-// Get contract address for network
+// 获取合约地址
 function getContractAddress(chainId: number, contract: string): string
 
-// Format explorer URL
+// 格式化区块浏览器URL
 function getExplorerUrl(chainId: number, type: 'tx' | 'address', value: string): string
+
+// 获取网络显示名称
+function getNetworkDisplayName(chainId: number): string
+
+// 检查是否为测试网
+function isTestnet(chainId: number): boolean
 ```
 
-## ⚠️ Error Handling
+## ⚠️ 错误处理
 
-### Smart Contract Errors
+### 智能合约错误
 
 ```solidity
-// Custom errors
+// 自定义错误
 error InvalidConfiguration();
 error InsufficientServiceFee();
 error SymbolAlreadyExists();
@@ -554,9 +731,11 @@ error ZeroAddress();
 error FeatureNotEnabled(string feature);
 error NotOwner();
 error InvalidAmount();
+error ExceedsMaxSupply();
+error TokenIsPaused();
 ```
 
-### Frontend Error Types
+### 前端错误类型
 
 ```typescript
 enum ErrorType {
@@ -566,7 +745,10 @@ enum ErrorType {
   TRANSACTION_FAILED = 'TRANSACTION_FAILED',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   CONTRACT_ERROR = 'CONTRACT_ERROR',
-  NETWORK_ERROR = 'NETWORK_ERROR'
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  FEATURE_NOT_ENABLED = 'FEATURE_NOT_ENABLED',
+  SYMBOL_EXISTS = 'SYMBOL_EXISTS',
+  TEMPLATE_NOT_FOUND = 'TEMPLATE_NOT_FOUND'
 }
 
 interface AppError {
@@ -576,52 +758,69 @@ interface AppError {
   recoverable: boolean
 }
 
-// Error handling utility
+// 错误处理工具
 function handleError(error: unknown): AppError {
-  // Error parsing and transformation logic
+  // 错误解析和转换逻辑
+  if (error.reason === "InvalidConfiguration") {
+    return {
+      type: ErrorType.VALIDATION_ERROR,
+      message: "代币配置无效",
+      recoverable: true
+    };
+  }
+
+  if (error.reason === "SymbolAlreadyExists") {
+    return {
+      type: ErrorType.SYMBOL_EXISTS,
+      message: "代币符号已存在",
+      recoverable: true
+    };
+  }
+
+  // ... 其他错误处理
 }
 ```
 
-### Common Error Scenarios
+### 常见错误场景
 
-#### Wallet Connection Errors
+#### 钱包连接错误
 ```typescript
-// Not connected
+// 未连接钱包
 if (!isConnected) {
   throw new AppError({
     type: ErrorType.WALLET_NOT_CONNECTED,
-    message: "Please connect your wallet",
+    message: "请连接您的钱包",
     recoverable: true
   });
 }
 
-// Wrong network
+// 网络不支持
 if (!isSupportedNetwork(chainId)) {
   throw new AppError({
     type: ErrorType.NETWORK_NOT_SUPPORTED,
-    message: `Network ${chainId} not supported`,
+    message: `网络 ${chainId} 不受支持`,
     recoverable: true
   });
 }
 ```
 
-#### Transaction Errors
+#### 交易错误
 ```typescript
-// Insufficient balance
+// 余额不足
 if (balance < requiredAmount) {
   throw new AppError({
     type: ErrorType.INSUFFICIENT_BALANCE,
-    message: "Insufficient balance for transaction",
+    message: "余额不足以完成交易",
     recoverable: false
   });
 }
 
-// Contract revert
+// 合约错误
 catch (error) {
-  if (error.reason === "InvalidConfiguration") {
+  if (error.reason === "InsufficientServiceFee") {
     throw new AppError({
       type: ErrorType.VALIDATION_ERROR,
-      message: "Token configuration is invalid",
+      message: "服务费用不足",
       details: error,
       recoverable: true
     });
@@ -629,9 +828,9 @@ catch (error) {
 }
 ```
 
-## 📊 Response Types
+## 📊 响应类型
 
-### Transaction Result
+### 交易结果
 ```typescript
 interface TransactionResult {
   hash: string
@@ -644,7 +843,7 @@ interface TransactionResult {
 }
 ```
 
-### Validation Result
+### 验证结果
 ```typescript
 interface ValidationResult {
   valid: boolean
@@ -657,58 +856,128 @@ interface ValidationError {
   message: string
   code: string
 }
+
+interface ValidationWarning {
+  field: string
+  message: string
+  suggestion?: string
+}
 ```
 
-### Multi-Chain Result
+### 多链结果
 ```typescript
 interface MultiChainResult {
   deployments: Record<number, {
     status: 'success' | 'failed' | 'pending'
     tokenAddress?: string
+    transactionHash?: string
     error?: Error
   }>
   totalCost: bigint
   successfulDeployments: number
+  failedDeployments: number
 }
 ```
 
-## 🔧 Rate Limiting
+### 代币信息
+```typescript
+interface TokenInfo {
+  address: string
+  name: string
+  symbol: string
+  decimals: number
+  totalSupply: bigint
+  maxSupply?: bigint
+  owner: string
+  features: {
+    mintable: boolean
+    burnable: boolean
+    pausable: boolean
+    capped: boolean
+  }
+  chainId: number
+  createdAt: Date
+  creator: string
+}
+```
 
-API calls are rate-limited to prevent abuse:
+## 🔧 限流策略
 
-- **Read operations**: 100 requests/minute per IP
-- **Write operations**: 10 requests/minute per wallet address
-- **Deployment operations**: 5 requests/hour per wallet address
+API调用限流防止滥用：
 
-## 📝 SDK Integration
+- **读取操作**: 每IP每分钟100次请求
+- **写入操作**: 每钱包地址每分钟10次请求
+- **部署操作**: 每钱包地址每小时5次请求
 
-### Installation
+## 📝 SDK 集成
+
+### 安装
 ```bash
 npm install @token-factory/sdk
 ```
 
-### Quick Start
+### 快速开始
 ```typescript
 import { TokenFactory, Network } from '@token-factory/sdk';
 
 const factory = new TokenFactory({
   network: Network.ETHEREUM_MAINNET,
   rpcUrl: 'your-rpc-url',
-  privateKey: 'your-private-key' // or use wallet
+  privateKey: 'your-private-key' // 或使用钱包
 });
 
-// Create token
+// 创建代币
 const config = {
-  name: "My Token",
+  name: "我的代币",
   symbol: "MT",
   totalSupply: "1000000",
-  // ... other config
+  decimals: 18,
+  initialOwner: "0x...",
+  mintable: true,
+  burnable: false,
+  pausable: false,
+  capped: false,
+  maxSupply: 0
 };
 
+// 预测地址
+const predictedAddress = await factory.predictTokenAddress(config);
+console.log('预测地址:', predictedAddress);
+
+// 创建代币
 const result = await factory.createToken(config);
-console.log('Token created:', result.tokenAddress);
+console.log('代币已创建:', result.tokenAddress);
 ```
+
+### 高级用法
+```typescript
+// 批量部署到多个网络
+const multiChainFactory = new MultiChainTokenFactory([
+  Network.ETHEREUM_MAINNET,
+  Network.BSC_MAINNET,
+  Network.POLYGON_MAINNET
+]);
+
+const results = await multiChainFactory.deployToAll(config);
+console.log('多链部署结果:', results);
+
+// 监听事件
+factory.on('TokenCreated', (event) => {
+  console.log('新代币创建:', event.tokenAddress);
+});
+
+// 获取统计信息
+const stats = await factory.getStats();
+console.log('工厂统计:', stats);
+```
+
+## 🔗 相关链接
+
+- **GitHub**: https://github.com/your-org/token-factory
+- **文档**: https://docs.token-factory.example.com
+- **问题反馈**: https://github.com/your-org/token-factory/issues
+- **Discord 社区**: https://discord.gg/token-factory
 
 ---
 
-**Need Help?** Check our [troubleshooting guide](./README.md#troubleshooting) or create an issue on GitHub.
+**需要帮助?** 查看我们的 [故障排除指南](./README.md#故障排除) 或在 GitHub 上创建问题。
