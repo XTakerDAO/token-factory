@@ -3,75 +3,19 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-
-// Import interfaces - these will need to be implemented
-interface ITokenFactory {
-    // Events
-    event TokenCreated(
-        address indexed tokenAddress,
-        address indexed creator,
-        string name,
-        string symbol,
-        uint256 totalSupply,
-        uint8 decimals,
-        bytes32 indexed configHash
-    );
-
-    event ServiceFeeUpdated(uint256 newFee, address feeRecipient);
-    event TemplateUpdated(bytes32 templateId, address implementation);
-
-    // Errors
-    error InvalidConfiguration();
-    error InsufficientServiceFee();
-    error TemplateNotFound();
-    error Unauthorized();
-
-    // Structs
-    struct TokenConfig {
-        string name;
-        string symbol;
-        uint256 totalSupply;
-        uint8 decimals;
-        bool mintable;
-        bool burnable;
-        bool pausable;
-        bool capped;
-        uint256 maxSupply;
-        address initialOwner;
-    }
-
-    // Core Functions
-    function createToken(TokenConfig calldata config)
-        external
-        payable
-        returns (address tokenAddress);
-
-    function getServiceFee() external view returns (uint256);
-    function getTokensByCreator(address creator) external view returns (address[] memory);
-    function isTokenDeployed(string calldata symbol) external view returns (bool);
-    function calculateDeploymentCost(TokenConfig calldata config)
-        external
-        view
-        returns (uint256 gasCost, uint256 serviceFee);
-    function validateConfiguration(TokenConfig calldata config)
-        external
-        pure
-        returns (bool valid, string memory reason);
-}
-
-interface IERC20 {
-    function name() external view returns (string memory);
-    function symbol() external view returns (string memory);
-    function decimals() external view returns (uint8);
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function owner() external view returns (address);
-}
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../src/TokenFactory.sol";
+import "../src/BasicERC20Template.sol";
+import "../src/MintableERC20Template.sol";
+import "../src/ERC20Template.sol";
+import "../src/interfaces/ITokenFactory.sol";
+import "../src/interfaces/IERC20Template.sol";
 
 /**
  * @title TokenFactory Test Suite
  * @dev Comprehensive tests for TokenFactory createToken functionality
- * These tests follow TDD approach and will FAIL initially until implementation is complete
  */
 contract TokenFactoryTest is Test {
     // Test accounts
@@ -80,6 +24,16 @@ contract TokenFactoryTest is Test {
     address public user1;
     address public user2;
     address public feeRecipient;
+
+    // Template implementations
+    address public basicERC20Template;
+    address public mintableERC20Template;
+    address public fullFeaturedTemplate;
+
+    // Template IDs
+    bytes32 public constant BASIC_ERC20 = keccak256("BASIC_ERC20");
+    bytes32 public constant MINTABLE_ERC20 = keccak256("MINTABLE_ERC20");
+    bytes32 public constant FULL_FEATURED = keccak256("FULL_FEATURED");
 
     // Test constants
     uint256 public constant SERVICE_FEE = 0.01 ether;
@@ -106,12 +60,38 @@ contract TokenFactoryTest is Test {
         // Fund test accounts
         vm.deal(user1, INITIAL_BALANCE);
         vm.deal(user2, INITIAL_BALANCE);
-        
-        // Deploy TokenFactory (this will fail until implementation exists)
+        vm.deal(owner, INITIAL_BALANCE);
+
+        // Deploy real template implementations
+        basicERC20Template = address(new BasicERC20Template());
+        mintableERC20Template = address(new MintableERC20Template());
+        fullFeaturedTemplate = address(new ERC20Template());
+
+        // Deploy TokenFactory with UUPS proxy pattern
         vm.startPrank(owner);
-        // factory = address(new TokenFactory()); // This line will fail - no implementation yet
+
+        // Deploy implementation
+        TokenFactory factoryImpl = new TokenFactory();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            TokenFactory.initialize.selector,
+            owner,
+            feeRecipient,
+            SERVICE_FEE
+        );
+
+        // Deploy proxy
+        ERC1967Proxy proxy = new ERC1967Proxy(address(factoryImpl), initData);
+        factory = address(proxy);
+
+        // Add initial templates
+        TokenFactory(factory).addTemplate(BASIC_ERC20, basicERC20Template);
+        TokenFactory(factory).addTemplate(MINTABLE_ERC20, mintableERC20Template);
+        TokenFactory(factory).addTemplate(FULL_FEATURED, fullFeaturedTemplate);
+
         vm.stopPrank();
-        
+
         console.log("TokenFactory Test Setup Complete");
         console.log("Factory address:", factory);
         console.log("Owner:", owner);
@@ -125,7 +105,7 @@ contract TokenFactoryTest is Test {
 
     function testCreateBasicToken() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Test Token",
             symbol: "TEST",
@@ -139,10 +119,10 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        // Expect TokenCreated event
-        vm.expectEmit(true, true, true, false);
+        // Expect TokenCreated event (we don't check token address as it's created dynamically)
+        vm.expectEmit(false, true, true, false);
         emit TokenCreated(
-            address(0), // Will be filled by actual token address
+            address(0), // Token address will be different each time
             user1,
             "Test Token",
             "TEST",
@@ -151,27 +131,26 @@ contract TokenFactoryTest is Test {
             keccak256(abi.encode(config))
         );
 
-        // This will fail until TokenFactory is implemented
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         // Verify token was created
         assertTrue(tokenAddress != address(0), "Token address should not be zero");
-        
-        // Verify token properties
-        IERC20 token = IERC20(tokenAddress);
+
+        // Verify token properties using BasicERC20Template
+        BasicERC20Template token = BasicERC20Template(tokenAddress);
         assertEq(token.name(), "Test Token", "Token name mismatch");
         assertEq(token.symbol(), "TEST", "Token symbol mismatch");
         assertEq(token.decimals(), 18, "Token decimals mismatch");
         assertEq(token.totalSupply(), 1000000 * 10**18, "Token total supply mismatch");
         assertEq(token.balanceOf(user1), 1000000 * 10**18, "Initial balance mismatch");
         assertEq(token.owner(), user1, "Token owner mismatch");
-        
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithAllFeatures() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Full Feature Token",
             symbol: "FULL",
@@ -185,21 +164,26 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         assertTrue(tokenAddress != address(0), "Token address should not be zero");
-        
-        IERC20 token = IERC20(tokenAddress);
+
+        // Verify with ERC20Template (full featured)
+        ERC20Template token = ERC20Template(tokenAddress);
         assertEq(token.name(), "Full Feature Token", "Token name mismatch");
         assertEq(token.symbol(), "FULL", "Token symbol mismatch");
         assertEq(token.totalSupply(), 500000 * 10**18, "Token total supply mismatch");
-        
+        assertTrue(token.isMintable(), "Token should be mintable");
+        assertTrue(token.isBurnable(), "Token should be burnable");
+        assertTrue(token.isPausable(), "Token should be pausable");
+        assertTrue(token.isCapped(), "Token should be capped");
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithCustomDecimals() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Six Decimal Token",
             symbol: "SIX",
@@ -213,14 +197,14 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         assertTrue(tokenAddress != address(0), "Token address should not be zero");
-        
-        IERC20 token = IERC20(tokenAddress);
+
+        BasicERC20Template token = BasicERC20Template(tokenAddress);
         assertEq(token.decimals(), 6, "Token decimals should be 6");
         assertEq(token.totalSupply(), 1000000 * 10**6, "Token total supply mismatch");
-        
+
         vm.stopPrank();
     }
 
@@ -230,7 +214,7 @@ contract TokenFactoryTest is Test {
 
     function testCreateTokenRequiresServiceFee() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Fee Test Token",
             symbol: "FEE",
@@ -245,15 +229,15 @@ contract TokenFactoryTest is Test {
         });
 
         // Should revert with insufficient fee
-        vm.expectRevert(ITokenFactory.InsufficientServiceFee.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE - 1}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InsufficientServiceFee.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE - 1}(config);
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithExactServiceFee() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Exact Fee Token",
             symbol: "EXACT",
@@ -268,18 +252,18 @@ contract TokenFactoryTest is Test {
         });
 
         uint256 balanceBefore = user1.balance;
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
         uint256 balanceAfter = user1.balance;
-        
+
         assertTrue(tokenAddress != address(0), "Token should be created");
         assertEq(balanceBefore - balanceAfter, SERVICE_FEE, "Service fee should be deducted");
-        
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithExcessFee() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Excess Fee Token",
             symbol: "EXCESS",
@@ -295,13 +279,13 @@ contract TokenFactoryTest is Test {
 
         uint256 excessFee = SERVICE_FEE + 0.005 ether;
         uint256 balanceBefore = user1.balance;
-        address tokenAddress = ITokenFactory(factory).createToken{value: excessFee}(config);
+        address tokenAddress = TokenFactory(factory).createToken{value: excessFee}(config);
         uint256 balanceAfter = user1.balance;
-        
+
         assertTrue(tokenAddress != address(0), "Token should be created");
         // Should only charge service fee, excess should be refunded
         assertEq(balanceBefore - balanceAfter, SERVICE_FEE, "Only service fee should be charged");
-        
+
         vm.stopPrank();
     }
 
@@ -311,7 +295,7 @@ contract TokenFactoryTest is Test {
 
     function testCreateTokenWithInvalidName() public {
         vm.startPrank(user1);
-        
+
         // Empty name
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "",
@@ -326,20 +310,20 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         // Name too long (>50 chars)
         config.name = "This is a very long token name that exceeds the maximum allowed length of fifty characters";
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithInvalidSymbol() public {
         vm.startPrank(user1);
-        
+
         // Empty symbol
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Valid Name",
@@ -354,20 +338,20 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         // Symbol too long (>10 chars)
         config.symbol = "VERYLONGSYMBOL";
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithInvalidDecimals() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Invalid Decimals Token",
             symbol: "INVDEC",
@@ -381,15 +365,15 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithZeroSupply() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Zero Supply Token",
             symbol: "ZERO",
@@ -403,15 +387,15 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         vm.stopPrank();
     }
 
     function testCreateTokenWithInvalidCappedConfiguration() public {
         vm.startPrank(user1);
-        
+
         // maxSupply < totalSupply when capped is true
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Invalid Capped Token",
@@ -426,9 +410,9 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         vm.stopPrank();
     }
 
@@ -438,7 +422,7 @@ contract TokenFactoryTest is Test {
 
     function testCreateTokenWithDuplicateSymbol() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config1 = ITokenFactory.TokenConfig({
             name: "First Token",
             symbol: "DUPE",
@@ -453,12 +437,12 @@ contract TokenFactoryTest is Test {
         });
 
         // Create first token
-        address token1 = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config1);
+        address token1 = TokenFactory(factory).createToken{value: SERVICE_FEE}(config1);
         assertTrue(token1 != address(0), "First token should be created");
-        
+
         vm.stopPrank();
         vm.startPrank(user2);
-        
+
         // Try to create second token with same symbol
         ITokenFactory.TokenConfig memory config2 = ITokenFactory.TokenConfig({
             name: "Second Token",
@@ -473,9 +457,9 @@ contract TokenFactoryTest is Test {
             initialOwner: user2
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config2);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.SymbolAlreadyExists.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config2);
+
         vm.stopPrank();
     }
 
@@ -485,7 +469,7 @@ contract TokenFactoryTest is Test {
 
     function testTokenCreationGasCost() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Gas Test Token",
             symbol: "GAS",
@@ -500,15 +484,15 @@ contract TokenFactoryTest is Test {
         });
 
         uint256 gasBefore = gasleft();
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         assertTrue(tokenAddress != address(0), "Token should be created");
         console.log("Gas used for basic token creation:", gasUsed);
-        
+
         // Gas should be reasonable (adjust based on actual implementation)
         assertTrue(gasUsed < 5000000, "Gas usage should be reasonable");
-        
+
         vm.stopPrank();
     }
 
@@ -526,11 +510,11 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        (uint256 gasCost, uint256 serviceFee) = ITokenFactory(factory).calculateDeploymentCost(config);
-        
+        (uint256 gasCost, uint256 serviceFee) = TokenFactory(factory).calculateDeploymentCost(config);
+
         assertTrue(gasCost > 0, "Gas cost should be greater than zero");
         assertEq(serviceFee, SERVICE_FEE, "Service fee should match expected value");
-        
+
         console.log("Estimated gas cost:", gasCost);
         console.log("Service fee:", serviceFee);
     }
@@ -548,9 +532,9 @@ contract TokenFactoryTest is Test {
 
         for (uint256 i = 0; i < chainIds.length; i++) {
             vm.chainId(chainIds[i]);
-            
+
             vm.startPrank(user1);
-            
+
             ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
                 name: string(abi.encodePacked("Chain Token ", vm.toString(chainIds[i]))),
                 symbol: string(abi.encodePacked("CHAIN", vm.toString(chainIds[i]))),
@@ -564,9 +548,9 @@ contract TokenFactoryTest is Test {
                 initialOwner: user1
             });
 
-            address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+            address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
             assertTrue(tokenAddress != address(0), "Token should be created on all chains");
-            
+
             vm.stopPrank();
         }
     }
@@ -578,7 +562,7 @@ contract TokenFactoryTest is Test {
     function testPreShanghaiCompatibility() public {
         // Test that the factory works with pre-Shanghai EVM features
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Pre-Shanghai Token",
             symbol: "PRE",
@@ -593,9 +577,9 @@ contract TokenFactoryTest is Test {
         });
 
         // This should work without using post-Shanghai opcodes
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
         assertTrue(tokenAddress != address(0), "Token should be created on pre-Shanghai EVM");
-        
+
         vm.stopPrank();
     }
 
@@ -605,7 +589,7 @@ contract TokenFactoryTest is Test {
 
     function testCreateTokenWithZeroAddress() public {
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Zero Owner Token",
             symbol: "ZERO",
@@ -619,9 +603,9 @@ contract TokenFactoryTest is Test {
             initialOwner: address(0)
         });
 
-        vm.expectRevert(ITokenFactory.InvalidConfiguration.selector);
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+        vm.expectRevert(abi.encodeWithSelector(ITokenFactory.InvalidConfiguration.selector));
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         vm.stopPrank();
     }
 
@@ -631,7 +615,7 @@ contract TokenFactoryTest is Test {
 
     function testGetTokensByCreator() public {
         vm.startPrank(user1);
-        
+
         // Create multiple tokens
         for (uint256 i = 0; i < 3; i++) {
             ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
@@ -646,22 +630,22 @@ contract TokenFactoryTest is Test {
                 maxSupply: 0,
                 initialOwner: user1
             });
-            
-            ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
+            TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
         }
-        
-        address[] memory tokens = ITokenFactory(factory).getTokensByCreator(user1);
+
+        address[] memory tokens = TokenFactory(factory).getTokensByCreator(user1);
         assertEq(tokens.length, 3, "Should have 3 tokens created by user1");
-        
+
         vm.stopPrank();
     }
 
     function testIsTokenDeployed() public {
         vm.startPrank(user1);
-        
+
         // Check non-existent token
-        assertFalse(ITokenFactory(factory).isTokenDeployed("NOTEXIST"), "Token should not exist");
-        
+        assertFalse(TokenFactory(factory).isTokenDeployed("NOTEXIST"), "Token should not exist");
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: "Deployed Test Token",
             symbol: "DEPLOY",
@@ -674,12 +658,12 @@ contract TokenFactoryTest is Test {
             maxSupply: 0,
             initialOwner: user1
         });
-        
-        ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
-        
+
+        TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+
         // Check deployed token
-        assertTrue(ITokenFactory(factory).isTokenDeployed("DEPLOY"), "Token should exist after creation");
-        
+        assertTrue(TokenFactory(factory).isTokenDeployed("DEPLOY"), "Token should exist after creation");
+
         vm.stopPrank();
     }
 
@@ -701,7 +685,7 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        (bool valid, string memory reason) = ITokenFactory(factory).validateConfiguration(validConfig);
+        (bool valid, string memory reason) = TokenFactory(factory).validateConfiguration(validConfig);
         assertTrue(valid, "Valid configuration should pass validation");
         assertEq(bytes(reason).length, 0, "No reason should be provided for valid config");
 
@@ -718,7 +702,7 @@ contract TokenFactoryTest is Test {
             initialOwner: user1
         });
 
-        (bool invalid, string memory invalidReason) = ITokenFactory(factory).validateConfiguration(invalidConfig);
+        (bool invalid, string memory invalidReason) = TokenFactory(factory).validateConfiguration(invalidConfig);
         assertFalse(invalid, "Invalid configuration should fail validation");
         assertTrue(bytes(invalidReason).length > 0, "Reason should be provided for invalid config");
     }
@@ -739,7 +723,7 @@ contract TokenFactoryTest is Test {
         vm.assume(decimals <= 18);
 
         vm.startPrank(user1);
-        
+
         ITokenFactory.TokenConfig memory config = ITokenFactory.TokenConfig({
             name: name,
             symbol: symbol,
@@ -754,14 +738,14 @@ contract TokenFactoryTest is Test {
         });
 
         // Skip if symbol already exists
-        if (ITokenFactory(factory).isTokenDeployed(symbol)) {
+        if (TokenFactory(factory).isTokenDeployed(symbol)) {
             vm.stopPrank();
             return;
         }
 
-        address tokenAddress = ITokenFactory(factory).createToken{value: SERVICE_FEE}(config);
+        address tokenAddress = TokenFactory(factory).createToken{value: SERVICE_FEE}(config);
         assertTrue(tokenAddress != address(0), "Fuzz test: Token should be created");
-        
+
         vm.stopPrank();
     }
 
@@ -784,6 +768,6 @@ contract TokenFactoryTest is Test {
         });
     }
 
-    // Test will fail until TokenFactory implementation exists
+    // Test will pass with actual TokenFactory implementation
     receive() external payable {}
 }

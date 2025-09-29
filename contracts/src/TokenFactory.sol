@@ -150,18 +150,21 @@ contract TokenFactory is
         tokenAddress = Clones.cloneDeterministic(template, salt);
 
         // Initialize the cloned token
-        IERC20Template(tokenAddress).initialize(
-            config.name,
-            config.symbol,
-            config.totalSupply,
-            config.decimals,
-            config.initialOwner,
-            config.mintable,
-            config.burnable,
-            config.pausable,
-            config.capped,
-            config.maxSupply
-        );
+        {
+            IERC20Template tokenContract = IERC20Template(tokenAddress);
+            tokenContract.initialize(
+                config.name,
+                config.symbol,
+                config.totalSupply,
+                config.decimals,
+                config.initialOwner,
+                config.mintable,
+                config.burnable,
+                config.pausable,
+                config.capped,
+                config.maxSupply
+            );
+        }
 
         // Update state
         _deployedSymbols[config.symbol] = true;
@@ -449,24 +452,29 @@ contract TokenFactory is
      * @dev Select appropriate template based on configuration
      */
     function _selectTemplate(TokenConfig calldata config) internal pure returns (bytes32) {
-        // Full featured if multiple advanced features
-        bool hasMultipleFeatures = 
-            (config.mintable ? 1 : 0) + 
-            (config.burnable ? 1 : 0) + 
-            (config.pausable ? 1 : 0) + 
-            (config.capped ? 1 : 0) > 1;
-            
-        if (hasMultipleFeatures || (config.mintable && config.pausable)) {
+        // Count enabled features (excluding capped as it can be combined with mintable)
+        uint8 featureCount =
+            (config.mintable ? 1 : 0) +
+            (config.burnable ? 1 : 0) +
+            (config.pausable ? 1 : 0);
+
+        // Full featured template for multiple features or complex combinations
+        if (featureCount > 1 || (config.burnable && config.pausable)) {
             return FULL_FEATURED;
         }
-        
-        // Mintable template if only minting needed
+
+        // Mintable template if only minting is needed (with optional capping)
         if (config.mintable && !config.burnable && !config.pausable) {
             return MINTABLE_ERC20;
         }
-        
-        // Basic template for simple tokens
-        return BASIC_ERC20;
+
+        // Basic template for simple tokens (no special features)
+        if (!config.mintable && !config.burnable && !config.pausable) {
+            return BASIC_ERC20;
+        }
+
+        // Any other single feature combinations use full featured template
+        return FULL_FEATURED;
     }
 
     /**

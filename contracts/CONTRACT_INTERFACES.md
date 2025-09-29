@@ -592,4 +592,4 @@ function validateTokenConfig(config: any): config is TokenConfig {
 
 ---
 
-This interface documentation provides the complete technical specification for integrating with the Token Factory smart contracts. For implementation examples, see the [API documentation](../API.md) and frontend source code.
+This interface documentation provides the complete technical specification for integrating with the Token Factory smart contracts. For implementation examples, see the [API documentation](../API.md).
