@@ -9,7 +9,6 @@
 1. Load feature spec from Input path
    → If not found: ERROR "No feature spec at {path}"
 2. Fill Technical Context (scan for NEEDS CLARIFICATION)
-   → Detect Project Type from file system structure or context (web=frontend+backend, mobile=app+api)
    → Set Structure Decision based on project type
 3. Fill the Constitution Check section based on the content of the constitution document.
 4. Evaluate Constitution Check section below
@@ -31,15 +30,12 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Create a comprehensive Token Creator DApp supporting multi-chain deployment (ETH, BSC, XSC) with advanced ERC20 features (mintable, burnable, pausable) through an upgradeable factory contract system. Technical approach: Next.js frontend with viem+wagmi for Web3 integration, Foundry-based smart contracts with OpenZeppelin proxy patterns.
 
 ## Technical Context
 **Language/Version**: TypeScript 5.0+, Solidity ^0.8.20+, Node.js 18+
 **Primary Dependencies**: viem, wagmi, Next.js 15+, Foundry, OpenZeppelin Contracts
 **Storage**: Browser localStorage for user preferences, blockchain for contract state
-**Testing**: Vitest (frontend), Foundry Test Suite (contracts), Playwright (E2E)
 **Target Platform**: Modern web browsers with Web3 wallet support
-**Project Type**: web - frontend + smart contracts structure
 **Performance Goals**: <100ms UI interactions, <2s page loads, <200ms transaction confirmations
 **Constraints**: <100MB memory usage, XSC Shanghai-pre EVM compatibility, multi-chain support
 **Scale/Scope**: 10k+ concurrent users, support 3 blockchain networks, 50+ UI screens
@@ -50,11 +46,9 @@ Create a comprehensive Token Creator DApp supporting multi-chain deployment (ETH
 ### I. Code Quality First ✅
 - TypeScript strict mode ensures type safety and maintainability
 - ESLint + Prettier for consistent code style
-- Clear separation: frontend (Next.js) + contracts (Foundry)
 - Descriptive naming conventions for components and contracts
 
 ### II. Test-Driven Development (NON-NEGOTIABLE) ✅
-- Vitest for frontend unit/integration tests (target 90% coverage)
 - Foundry Test Suite for comprehensive contract testing
 - Playwright for E2E user scenarios
 - TDD workflow: Write tests → Fail → Implement → Pass
@@ -94,7 +88,6 @@ specs/[###-feature]/
 
 ### Source Code (repository root)
 ```
-frontend/
 ├── src/
 │   ├── components/           # React UI components
 │   │   ├── ui/              # Base UI components (Radix)
@@ -125,7 +118,6 @@ contracts/
 └── lib/                   # Contract dependencies
 ```
 
-**Structure Decision**: Web application structure selected based on frontend + smart contracts pattern. Frontend uses modern Next.js architecture with clear separation of concerns. Contracts follow Foundry conventions for maintainable smart contract development.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:

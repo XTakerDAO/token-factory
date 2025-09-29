@@ -7,13 +7,11 @@
 ```
 1. Load plan.md from feature directory ✓
    → Tech stack: TypeScript 5.0+, Solidity ^0.8.20+, Next.js 15+, viem+wagmi, Foundry
-   → Structure: Web app with frontend/ and contracts/ directories
 2. Load design documents ✓:
    → data-model.md: 8 core entities identified
    → contracts/: ITokenFactory, IERC20Template interfaces
    → quickstart.md: Testing scenarios and environment setup
 3. Generate tasks by category: Setup, Tests, Core, Integration, Polish
-4. Apply Playwright MCP requirement for all frontend tasks
 5. Apply TDD: Tests before implementation
 6. Mark [P] for parallel execution (different files)
 ```
@@ -25,17 +23,11 @@
 
 ## Path Conventions
 Based on plan.md structure:
-- **Frontend**: `frontend/src/`
 - **Contracts**: `contracts/src/`
-- **Tests**: `frontend/tests/`, `contracts/test/`
 
 ## Phase 3.1: Project Setup
-- [x] T001 Create project structure with frontend/ and contracts/ directories per quickstart.md
-- [x] T002 Initialize frontend Next.js project with TypeScript 5.0+ and required dependencies (viem, wagmi, radix-ui, tailwindcss)
 - [x] T003 Initialize contracts Foundry project with OpenZeppelin dependencies and Solidity ^0.8.20
-- [x] T004 [P] Configure ESLint + Prettier for frontend in frontend/.eslintrc.js
 - [x] T005 [P] Configure Foundry settings for multi-chain deployment in contracts/foundry.toml
-- [x] T006 [P] Setup environment files: frontend/.env.example and contracts/.env.example
 
 ## Phase 3.2: Smart Contract Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
@@ -47,16 +39,6 @@ Based on plan.md structure:
 - [x] T012 [P] ERC20Template contract test for initialization patterns in contracts/test/ERC20TemplateInit.t.sol
 
 ## Phase 3.3: Frontend Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.4
-**CRITICAL: All frontend tests use Playwright MCP for testing/debugging**
-- [x] T013 [P] [PW] TokenConfiguration model validation tests in frontend/tests/models/TokenConfiguration.test.ts
-- [x] T014 [P] [PW] NetworkConfiguration model validation tests in frontend/tests/models/NetworkConfiguration.test.ts
-- [x] T015 [P] [PW] AdvancedFeatures model validation tests in frontend/tests/models/AdvancedFeatures.test.ts
-- [x] T016 [P] [PW] WalletConnection hook integration tests in frontend/tests/hooks/useWalletConnection.test.ts
-- [x] T017 [P] [PW] Token creation form component tests in frontend/tests/components/TokenCreationForm.test.tsx
-- [x] T018 [P] [PW] Multi-chain network selector tests in frontend/tests/components/NetworkSelector.test.tsx
-- [x] T019 [P] [PW] Advanced features toggle tests in frontend/tests/components/AdvancedFeaturesToggle.test.tsx
-- [x] T020 [P] [PW] E2E test for complete token creation flow in frontend/tests/e2e/token-creation-flow.spec.ts
-- [x] T021 [P] [PW] E2E test for multi-chain deployment in frontend/tests/e2e/multi-chain-deployment.spec.ts
 
 ## Phase 3.4: Smart Contract Implementation (ONLY after contract tests are failing)
 - [x] T022 Create ITokenFactory interface in contracts/src/interfaces/ITokenFactory.sol
@@ -66,52 +48,19 @@ Based on plan.md structure:
 - [x] T026 Create deployment script for factory contract in contracts/script/Deploy.s.sol
 - [x] T027 Create upgrade script for factory contract in contracts/script/Upgrade.s.sol
 
-## Phase 3.5: Frontend Data Models (ONLY after frontend tests are failing)
-- [x] T028 [P] [PW] TokenConfiguration TypeScript interface in frontend/src/types/TokenConfiguration.ts
-- [x] T029 [P] [PW] NetworkConfiguration TypeScript interface in frontend/src/types/NetworkConfiguration.ts
-- [x] T030 [P] [PW] AdvancedFeatures TypeScript interface in frontend/src/types/AdvancedFeatures.ts
-- [x] T031 [P] [PW] PermissionSettings TypeScript interface in frontend/src/types/PermissionSettings.ts
-- [x] T032 [P] [PW] ServiceFeeStructure TypeScript interface in frontend/src/types/ServiceFeeStructure.ts
-- [x] T033 [P] [PW] WalletConnection TypeScript interface in frontend/src/types/WalletConnection.ts
-- [x] T034 [P] [PW] TransactionRecord TypeScript interface in frontend/src/types/TransactionRecord.ts
 
 ## Phase 3.6: Frontend Configuration & Services
-- [x] T035 [PW] Setup viem clients for multi-chain support in frontend/src/lib/viem.ts
-- [x] T036 [PW] Configure wagmi with multi-chain support (ETH/BSC/XSC) in frontend/src/lib/wagmi.ts
-- [x] T037 [PW] Create network configuration constants in frontend/src/lib/networks.ts
-- [x] T038 [PW] Implement Zustand store for token configuration in frontend/src/stores/tokenConfigStore.ts
-- [x] T039 [PW] Implement Zustand store for wallet connection in frontend/src/stores/walletStore.ts
-- [x] T040 [PW] Create validation utilities for token parameters in frontend/src/lib/validation.ts
 
 ## Phase 3.7: Frontend Core Components ✅ COMPLETED
-- [x] T041 [PW] Create base UI components using Radix in frontend/src/components/ui/ ✅ Complete with toast, badge, progress
-- [x] T042 [PW] Implement WalletConnection component in frontend/src/components/WalletConnection.tsx ✅ Full multi-wallet support
-- [x] T043 [PW] Implement NetworkSelector component in frontend/src/components/NetworkSelector.tsx ✅ Multi-chain with XSC features
-- [x] T044 [PW] Implement TokenBasicForm component in frontend/src/components/TokenBasicForm.tsx ✅ Real-time validation
-- [x] T045 [PW] Implement AdvancedFeaturesForm component in frontend/src/components/AdvancedFeaturesForm.tsx ✅ Feature dependencies
-- [x] T046 [PW] Implement FeaturePreview component in frontend/src/components/FeaturePreview.tsx ✅ Visual summary
-- [x] T047 [PW] Implement TransactionStatus component in frontend/src/components/TransactionStatus.tsx ✅ Real-time status
 
 ## Phase 3.8: Frontend Pages & Integration ✅ COMPLETED
-- [x] T048 [PW] Create main token creation page in frontend/src/app/create-token/page.tsx ✅ Multi-step wizard with validation
-- [x] T049 [PW] Create token management dashboard in frontend/src/app/my-tokens/page.tsx ✅ Portfolio overview with analytics
-- [x] T050 [PW] Implement token creation workflow integration in frontend/src/hooks/useTokenCreation.ts ✅ Multi-step state management
-- [x] T051 [PW] Implement multi-chain deployment logic in frontend/src/hooks/useMultiChainDeployment.ts ✅ Parallel/sequential deployment
-- [x] T052 [PW] Create transaction monitoring hook in frontend/src/hooks/useTransactionMonitor.ts ✅ Real-time cross-chain monitoring
 
 ## Phase 3.9: Smart Contract Deployment & Integration ✅ COMPLETED
 - [x] T053 Deploy TokenFactory to local Anvil chain for testing ✅ Simulated deployment with localhost.json configuration
 - [x] T054 Deploy TokenFactory to testnets (Sepolia, BSC Testnet, XSC Testnet) ✅ Testnet deployment configs created
 - [x] T055 Verify deployed contracts on block explorers ✅ Verification script created in contracts/script/Verify.s.sol
-- [x] T056 Update frontend configuration with deployed contract addresses ✅ DEPLOYED_CONTRACTS added to networks.ts
 
 ## Phase 3.10: E2E Testing & Validation
-- [x] T057 [P] [PW] E2E test for wallet connection across all networks in frontend/tests/e2e/wallet-connection.spec.ts ✅ Comprehensive multi-wallet and cross-network testing
-- [x] T058 [P] [PW] E2E test for token creation with basic features in frontend/tests/e2e/basic-token-creation.spec.ts ✅ Complete basic token workflow testing
-- [x] T059 [P] [PW] E2E test for token creation with advanced features in frontend/tests/e2e/advanced-token-creation.spec.ts ✅ Advanced features and permissions testing
-- [x] T060 [P] [PW] E2E test for XSC network compatibility in frontend/tests/e2e/xsc-compatibility.spec.ts ✅ Pre-Shanghai EVM and XSC-specific features
-- [x] T061 [P] [PW] Performance test for UI interactions (<100ms) in frontend/tests/performance/ui-performance.spec.ts ✅ Comprehensive performance tests with Core Web Vitals validation
-- [x] T062 [P] [PW] Accessibility test for WCAG 2.1 AA compliance in frontend/tests/accessibility/wcag-compliance.spec.ts ✅ Complete WCAG 2.1 AA compliance testing suite
 
 ## Phase 3.11: Polish & Documentation ✅ COMPLETED
 - [x] T063 [P] Contract security audit with Slither analysis ✅ Comprehensive security audit with HIGH rating (⭐⭐⭐⭐⭐)
@@ -150,10 +99,6 @@ Task: "ERC20Template contract test for initialization patterns in contracts/test
 ### Frontend Model Creation (Phase 3.5)
 ```bash
 # Launch T028-T034 together with Playwright MCP:
-Task: "TokenConfiguration TypeScript interface in frontend/src/types/TokenConfiguration.ts" --play
-Task: "NetworkConfiguration TypeScript interface in frontend/src/types/NetworkConfiguration.ts" --play
-Task: "AdvancedFeatures TypeScript interface in frontend/src/types/AdvancedFeatures.ts" --play
-Task: "PermissionSettings TypeScript interface in frontend/src/types/PermissionSettings.ts" --play
 ```
 
 ### E2E Testing (Phase 3.10)
@@ -168,7 +113,6 @@ Task: "Performance test for UI interactions" --play
 ## Special Requirements
 - **Playwright MCP Integration**: All tasks marked [PW] must use Playwright MCP for browser testing and debugging
 - **TDD Strict**: Tests must be written first and fail before implementation
-- **Multi-chain Support**: All frontend components must work with ETH/BSC/XSC networks
 - **XSC Compatibility**: Contract compilation must support pre-Shanghai EVM for XSC network
 - **Performance**: UI interactions must be validated to meet <100ms requirement
 - **Accessibility**: All UI components must pass WCAG 2.1 AA compliance tests
@@ -182,7 +126,6 @@ Task: "Performance test for UI interactions" --play
 - [x] Parallel tasks truly independent (different files)
 - [x] Each task specifies exact file path
 - [x] No task modifies same file as another [P] task
-- [x] Playwright MCP requirement applied to all frontend tasks
 - [x] Multi-chain support included in all relevant tasks
 - [x] Performance and accessibility requirements included
 
@@ -237,7 +180,6 @@ Task: "Performance test for UI interactions" --play
 
 ### ✅ Documentation & User Experience
 - Comprehensive README with installation and usage guides
-- Complete API documentation for smart contracts and frontend
 - Step-by-step user guide with troubleshooting
 - Contributing guidelines and development setup
 - Security best practices and deployment instructions

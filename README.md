@@ -504,7 +504,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [OpenZeppelin](https://openzeppelin.com/) for secure smart contract patterns
 - [Foundry](https://book.getfoundry.sh/) for smart contract development toolkit
-- [Next.js](https://nextjs.org/) for the React framework
 - [viem](https://viem.sh/) and [wagmi](https://wagmi.sh/) for Web3 integration
 - [Radix UI](https://www.radix-ui.com/) for accessible component primitives
 - XSC Network team for blockchain infrastructure
@@ -523,7 +522,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Token marketplace integration
 - [ ] Advanced permission systems
 - [ ] Liquidity pool integration
-- [ ] Mobile application (React Native)
 
 ### Version 2.2 (Q3 2025)
 - [ ] Cross-chain token bridging

@@ -152,7 +152,6 @@ const xscChain = {
 **Setup**:
 - Docker for consistent development environment
 - Local blockchain with Anvil (Foundry)
-- Hot reload for frontend and contract changes
 - Integrated testing in development
 
 ### Deployment Pipeline

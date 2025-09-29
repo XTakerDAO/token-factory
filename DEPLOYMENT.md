@@ -72,7 +72,6 @@ npm run install:all
 
 # 或者分别安装
 cd contracts && npm install
-cd ../frontend && npm install
 ```
 
 ### 2. 环境配置
@@ -87,15 +86,10 @@ PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 RPC_URL=http://localhost:8545
 ```
 
-**前端环境** (`frontend/.env.local`)：
 ```bash
 # 复制环境文件
-cp frontend/.env.example frontend/.env.local
 
 # 编辑配置
-NEXT_PUBLIC_ENVIRONMENT=development
-NEXT_PUBLIC_RPC_URL=http://localhost:8545
-NEXT_PUBLIC_CHAIN_ID=31337
 ```
 
 ### 3. 启动本地环境
@@ -120,9 +114,7 @@ forge test
 forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545 -vvvv
 ```
 
-**终端 3 - 启动前端**：
 ```bash
-cd frontend
 npm run dev
 ```
 
@@ -212,7 +204,6 @@ forge script script/Deploy.s.sol \
 
 ### 4. 记录部署信息
 
-部署成功后，记录合约地址到 `frontend/src/lib/networks.ts`：
 
 ```typescript
 export const DEPLOYED_CONTRACTS = {
@@ -230,45 +221,31 @@ export const DEPLOYED_CONTRACTS = {
 }
 ```
 
-## 🌐 前端部署
 
-### 1. Vercel部署 (推荐)
 
 **准备工作**：
-1. 在 [Vercel](https://vercel.com) 创建账户
 2. 连接GitHub仓库
 
 **部署配置**：
 ```bash
-# 安装Vercel CLI
 npm i -g vercel
 
 # 登录
 vercel login
 
-# 在frontend目录部署
-cd frontend
 vercel
 
 # 生产部署
 vercel --prod
 ```
 
-**环境变量配置** (在Vercel面板设置)：
 ```bash
-NEXT_PUBLIC_ENVIRONMENT=production
-NEXT_PUBLIC_INFURA_PROJECT_ID=your_infura_key
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_key
-NEXT_PUBLIC_ANALYTICS_ID=your_analytics_id
 ```
 
-### 2. Netlify部署
 
-**构建配置** (`frontend/netlify.toml`)：
 ```toml
 [build]
   command = "npm run build"
-  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -279,35 +256,23 @@ NEXT_PUBLIC_ANALYTICS_ID=your_analytics_id
   status = 200
 ```
 
-### 3. Docker部署
 
 **构建镜像**：
 ```bash
-cd frontend
 
 # 构建镜像
-docker build -t token-factory:latest .
 
 # 运行容器
-docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_ENVIRONMENT=production \
-  -e NEXT_PUBLIC_RPC_URL=your_rpc_url \
   token-factory:latest
 ```
 
-**Docker Compose** (`docker-compose.yml`)：
 ```yaml
 version: '3.8'
 services:
-  frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_ENVIRONMENT=production
-      - NEXT_PUBLIC_RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
     restart: unless-stopped
 ```
 
@@ -388,24 +353,16 @@ forge script script/Deploy.s.sol \
   --etherscan-api-key $BSCSCAN_API_KEY
 ```
 
-### 2. 生产前端部署
 
-**更新配置** (`frontend/.env.production`)：
 ```bash
-NEXT_PUBLIC_ENVIRONMENT=production
-NEXT_PUBLIC_INFURA_PROJECT_ID=your_production_infura_key
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_key
-NEXT_PUBLIC_ANALYTICS_ID=your_production_analytics_id
 ```
 
 **构建和部署**：
 ```bash
-cd frontend
 
 # 生产构建
 npm run build
 
-# 部署到Vercel
 vercel --prod
 
 # 或部署到其他平台
@@ -437,7 +394,6 @@ ETHERSCAN_API_KEY=your_etherscan_api_key
 BSCSCAN_API_KEY=your_bscscan_api_key
 ```
 
-**前端部署相关**：
 ```
 VERCEL_TOKEN=your_vercel_token
 VERCEL_PROJECT_ID=your_project_id
@@ -487,7 +443,6 @@ cast call $FACTORY_ADDRESS "getTemplate(bytes32)" $TEMPLATE_ID --rpc-url $RPC_UR
 3. 确认合约已验证
 4. 检查合约交互记录
 
-### 2. 前端功能验证
 
 **基本功能检查**：
 - [ ] 钱包连接正常
@@ -569,15 +524,12 @@ cast gas-price --rpc-url $RPC_URL
 forge script script/Deploy.s.sol --broadcast --gas-limit 3000000
 ```
 
-**2. 前端构建失败**
 ```bash
 # 清除缓存
-rm -rf .next node_modules package-lock.json
 npm install
 npm run build
 
 # 检查环境变量
-echo $NEXT_PUBLIC_ENVIRONMENT
 ```
 
 **3. 网络连接问题**
@@ -596,9 +548,7 @@ curl -X POST -H "Content-Type: application/json" \
 forge script script/Rollback.s.sol --broadcast --rpc-url $RPC_URL
 ```
 
-**前端回滚**：
 ```bash
-# Vercel回滚到上个版本
 vercel rollback
 
 # 或指定版本
@@ -622,7 +572,6 @@ vercel rollback [deployment-url]
 - [ ] 升级权限合理配置
 - [ ] 服务费设置合理
 - [ ] 模板权限正确
-- [ ] 前端HTTPS配置
 - [ ] CSP和CORS正确配置
 
 ### 监控和维护
@@ -632,7 +581,6 @@ vercel rollback [deployment-url]
 # 合约事件监控
 cast logs --address $FACTORY_ADDRESS --rpc-url $RPC_URL
 
-# 前端性能监控 (使用Analytics)
 # 错误日志监控 (使用Sentry)
 ```
 
@@ -689,7 +637,6 @@ cast logs --address $FACTORY_ADDRESS --rpc-url $RPC_URL
 - [ ] 合约Owner设置正确
 - [ ] 所有函数调用正常
 - [ ] 事件日志记录正确
-- [ ] 前端集成测试通过
 - [ ] 监控和告警设置完成
 
 ---

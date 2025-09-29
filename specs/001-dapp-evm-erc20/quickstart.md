@@ -14,8 +14,6 @@
 git clone <repository-url>
 cd token-factory
 
-# Install frontend dependencies
-cd frontend
 pnpm install
 
 # Install contract dependencies
@@ -28,12 +26,8 @@ forge install
 2. **Environment Configuration**
 ```bash
 # Frontend environment
-cp frontend/.env.example frontend/.env.local
 
 # Edit environment variables
-NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_project_id
-NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_key
-NEXT_PUBLIC_ENVIRONMENT=development
 ```
 
 3. **Local Blockchain Setup**
@@ -50,7 +44,6 @@ forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast --p
 
 ### Frontend Development
 ```bash
-cd frontend
 pnpm dev
 # Open http://localhost:3000
 ```
@@ -72,7 +65,6 @@ forge fmt
 
 #### Frontend Testing
 ```bash
-cd frontend
 # Unit tests
 pnpm test
 
@@ -175,7 +167,6 @@ const tokenName = await client.readContract({
 
 ### Frontend Performance Tests
 ```bash
-cd frontend
 # Lighthouse CI
 pnpm lighthouse
 
@@ -224,7 +215,6 @@ certoraRun conf/TokenFactory.conf
 
 ### Frontend Security Tests
 ```bash
-cd frontend
 # Security audit
 pnpm audit
 
@@ -235,7 +225,6 @@ pnpm audit --audit-level moderate
 ## Deployment Checklist
 
 ### Pre-deployment Verification
-- [ ] All tests passing (frontend + contracts)
 - [ ] Gas optimization completed
 - [ ] Security audits passed
 - [ ] Performance metrics met
@@ -253,8 +242,6 @@ forge script script/Deploy.s.sol --network xsc --broadcast --verify
 
 2. **Frontend Deployment**
 ```bash
-# Build optimized frontend
-cd frontend
 pnpm build
 
 # Deploy to hosting platform
@@ -266,7 +253,6 @@ pnpm deploy:production
 # Verify contract functionality
 cast call <FACTORY_ADDRESS> "getServiceFee()" --rpc-url <MAINNET_RPC>
 
-# Test frontend connectivity
 curl -I https://your-dapp-url.com
 ```
 
@@ -295,7 +281,6 @@ curl -I https://your-dapp-url.com
 forge debug --debug <TX_HASH> --rpc-url <RPC_URL>
 
 # Frontend debugging
-cd frontend
 pnpm dev --debug
 
 # Network analysis

@@ -102,163 +102,7 @@ jobs:
               body: `## ⛽ Gas Report\n\n\`\`\`\n${gasReport}\n\`\`\``
             });
 
-  # ============== FRONTEND JOBS ==============
 
-  frontend-lint:
-    name: 🔍 Lint Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Run ESLint
-        working-directory: ./frontend
-        run: npm run lint
-
-      - name: Run Prettier check
-        working-directory: ./frontend
-        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"
-
-      - name: TypeScript check
-        working-directory: ./frontend
-        run: npm run type-check
-
-  frontend-test:
-    name: 🧪 Test Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Run unit tests
-        working-directory: ./frontend
-        run: npm run test -- --coverage
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./frontend/coverage/lcov.info
-          flags: frontend
-
-  frontend-build:
-    name: 🔨 Build Frontend
-    runs-on: ubuntu-latest
-    needs: [frontend-lint, frontend-test]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Build application
-        working-directory: ./frontend
-        run: npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next/
-          retention-days: 7
-
-  # ============== E2E TESTING ==============
-
-  e2e-tests:
-    name: 🎭 E2E Tests
-    runs-on: ubuntu-latest
-    needs: [contracts-test, frontend-build]
-    timeout-minutes: 30
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: ./frontend
-        run: npx playwright install --with-deps
-
-      - name: Start Anvil
-        working-directory: ./contracts
-        run: |
-          anvil --fork-url ${{ secrets.MAINNET_RPC_URL }} --port 8545 &
-          sleep 5
-
-      - name: Deploy contracts to local network
-        working-directory: ./contracts
-        run: forge script script/Deploy.s.sol --broadcast --rpc-url http://localhost:8545
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next/
-
-      - name: Start frontend
-        working-directory: ./frontend
-        run: |
-          npm run start &
-          sleep 10
-
-      - name: Run E2E tests
-        working-directory: ./frontend
-        run: npm run test:e2e
-        env:
-          NEXT_PUBLIC_ENVIRONMENT: test
-          NEXT_PUBLIC_RPC_URL: http://localhost:8545
-
-      - name: Upload E2E test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-results
-          path: |
-            frontend/test-results/
-            frontend/playwright-report/
-          retention-days: 7
 
   # ============== SECURITY SCANNING ==============
 
@@ -277,11 +121,6 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Run npm audit (Frontend)
-        working-directory: ./frontend
-        run: |
-          npm ci
-          npm audit --audit-level high
 
       - name: Run Mythril analysis (Contracts)
         working-directory: ./contracts
@@ -302,7 +141,7 @@ jobs:
   deploy-staging:
     name: 🚀 Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [contracts-test, frontend-build, e2e-tests]
+    needs: [contracts-test]
     if: github.ref == 'refs/heads/develop'
     environment: staging
     steps:
@@ -326,25 +165,11 @@ jobs:
         run: |
           forge script script/Deploy.s.sol --broadcast --rpc-url $SEPOLIA_RPC_URL --verify
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next/
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-args: --prod
-          working-directory: ./frontend
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
 
   deploy-production:
     name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
-    needs: [contracts-test, frontend-build, e2e-tests, security-scan]
+    needs: [contracts-test, security-scan]
     if: github.ref == 'refs/heads/main'
     environment: production
     steps:
@@ -368,20 +193,6 @@ jobs:
         run: |
           forge script script/Deploy.s.sol --broadcast --rpc-url $MAINNET_RPC_URL --verify
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next/
-
-      - name: Deploy to production
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-args: --prod
-          working-directory: ./frontend
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
