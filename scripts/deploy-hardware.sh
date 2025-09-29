@@ -194,8 +194,7 @@ if eval $DEPLOY_COMMAND; then
     echo "1. ✓ Verify contracts on block explorer"
     echo "2. ⏳ Test contract functionality"
     echo "3. ⏳ Set up monitoring"
-    echo "4. ⏳ Update frontend configuration"
-    echo "5. ⏳ Create operational procedures"
+    echo "4. ⏳ Create operational procedures"
 
     # Save deployment information
     DEPLOYMENT_FILE="deployments/${NETWORK}_hardware_$(date +%Y%m%d_%H%M%S).json"

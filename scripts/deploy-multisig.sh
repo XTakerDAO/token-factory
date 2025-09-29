@@ -224,7 +224,6 @@ if eval $DEPLOY_COMMAND; then
     echo ""
     echo "4. ⏳ Test contract functionality"
     echo "5. ⏳ Set up monitoring and alerts"
-    echo "6. ⏳ Update frontend configuration"
 
     # Save deployment information
     DEPLOYMENT_FILE="deployments/${NETWORK}_multisig_$(date +%Y%m%d_%H%M%S).json"
