@@ -37,11 +37,12 @@ cast call $FACTORY_ADDRESS "owner()" --rpc-url $RPC_URL
 
 ### OpenZeppelin兼容性说明
 
-本项目已针对OpenZeppelin v4.9+进行完全优化：
-- ✅ 所有合约继承OpenZeppelin标准实现
-- ✅ 完美兼容UUPS代理升级模式
-- ✅ 修复所有interface冲突问题
-- ✅ 遵循OpenZeppelin安全最佳实践
+本项目已升级到 OpenZeppelin v5.0.0：
+- ✅ 所有合约使用 OpenZeppelin v5.0.0 标准实现
+- ✅ 完美兼容 UUPS 代理升级模式
+- ✅ API 变更已全部适配 (__Ownable_init(owner), _update 等)
+- ✅ 路径更新: security/ → utils/ (ReentrancyGuard, Pausable)
+- ✅ 遵循 OpenZeppelin 安全最佳实践
 
 ## 📋 部署概览
 
@@ -191,19 +192,79 @@ forge script script/Deploy.s.sol \
 ```
 
 **部署到XSC测试网**：
-```bash
-# 1. 编译合约
-forge build
 
-# 2. 部署 (XSC暂不支持自动验证)
-forge script script/Deploy.s.sol \
+⚠️ **XSC 链 EVM 兼容性要求**
+
+**关键**: XSC 链必须使用 **London EVM** 版本编译
+
+**为什么需要 London EVM?**
+- XSC 链不支持 Shanghai 硬分叉引入的新操作码 (如 PUSH0)
+- 使用 Shanghai 或更新版本会导致部署失败
+- London 是最后一个被 XSC 完全支持的 EVM 版本
+
+**配置要求** (foundry.toml):
+```toml
+[profile.xsc]
+solc_version = "0.8.20"
+evm_version = "london"  # 必须
+optimizer = true
+optimizer_runs = 200
+via_ir = false          # 必须禁用
+```
+
+**部署命令**:
+```bash
+# 1. 使用 London EVM 编译
+cd contracts
+forge build --evm-version london
+
+# 2. 部署到 XSC (使用 legacy gas 模式)
+forge script script/DeployXSC.s.sol \
   --broadcast \
-  --rpc-url $XSC_TESTNET_RPC_URL \
+  --rpc-url https://datarpc1.xsc.pub/ \
+  --legacy \
   -vvvv
 ```
 
-### 4. 记录部署信息
+### 4. XSC 主网部署信息
 
+**已部署合约** (2025-10-01):
+```bash
+Chain ID: 520
+Network: XSC Mainnet
+RPC: https://datarpc1.xsc.pub/
+Explorer: https://explorer.xsc.pub/
+
+TokenFactory (Proxy):     0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B
+TokenFactory (Impl):      0xce4C94C6d88e7a8a1649752155A87341b49DdBC8
+BasicERC20Template:       0xC81EbBf532bB60A3618D09E06B6e50d7A33301d7
+MintableERC20Template:    0x6424559a49dCA52Eb3E420cC264da1388cACc56f
+ERC20Template:            0x0EA7D0f4DC3195990CfCF42cD0817700D7FA4fa0
+Deployer:                 0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9
+```
+
+**验证部署**:
+```bash
+# 查询 TokenFactory owner
+cast call 0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B "owner()" \
+  --rpc-url https://datarpc1.xsc.pub/
+
+# 查询服务费
+cast call 0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B "getServiceFee()" \
+  --rpc-url https://datarpc1.xsc.pub/
+
+# 查询模板数量
+cast call 0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B "getAllTemplates()(bytes32[])" \
+  --rpc-url https://datarpc1.xsc.pub/
+
+# 查询创建者的代币
+cast call 0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B \
+  "getTokensByCreator(address)(address[])" \
+  0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9 \
+  --rpc-url https://datarpc1.xsc.pub/
+```
+
+### 5. 测试网部署记录
 
 ```typescript
 export const DEPLOYED_CONTRACTS = {
@@ -214,9 +275,9 @@ export const DEPLOYED_CONTRACTS = {
   97: { // BSC Testnet
     tokenFactory: "0x742d35Cc6634C0532925a3b8D4Ed6C7646C7F11D"
   },
-  // XSC Testnet
-  31338: {
-    tokenFactory: "0x742d35Cc6634C0532925a3b8D4Ed6C7646C7F11E"
+  // XSC Mainnet
+  520: {
+    tokenFactory: "0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B"
   }
 }
 ```

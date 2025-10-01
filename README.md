@@ -3,7 +3,7 @@
 ![Token Factory](https://img.shields.io/badge/Token-Factory-blue)
 ![Solidity](https://img.shields.io/badge/Solidity-^0.8.21-blue)
 ![Foundry](https://img.shields.io/badge/Foundry-Latest-green)
-![OpenZeppelin](https://img.shields.io/badge/OpenZeppelin-5.0-red)
+![OpenZeppelin](https://img.shields.io/badge/OpenZeppelin-v5.0.0-red)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Smart contract repository for Token Factory - a comprehensive ERC20 token creation platform with advanced features across multiple blockchain networks. Built with Foundry and optimized for multi-chain deployment including XSC Network support.
@@ -22,9 +22,10 @@ Smart contract repository for Token Factory - a comprehensive ERC20 token creati
 - **🛠️ Developer Tools**: Foundry-based development environment with scripts
 
 ### XSC Network Optimization
-- **🔧 Pre-Shanghai EVM**: Compatible with XSC Network's EVM version
+- **🔧 London EVM Compatible**: 必须使用 London EVM 版本编译 (不支持 Shanghai)
 - **⚡ Optimized Gas**: Custom gas strategies for XSC transactions
 - **🔗 Network Integration**: Seamless XSC network switching and validation
+- **📝 Solidity 0.8.20**: 配合 London EVM 确保完全兼容
 
 ## 🏗️ Architecture
 
@@ -328,8 +329,24 @@ cd contracts && forge test --fuzz-runs 1000
 | Ethereum Sepolia | 11155111 | https://sepolia.infura.io | https://sepolia.etherscan.io |
 | BSC Mainnet | 56 | https://bsc-dataseed.binance.org | https://bscscan.com |
 | BSC Testnet | 97 | https://data-seed-prebsc-1-s1.binance.org | https://testnet.bscscan.com |
-| XSC Network | [Custom] | https://rpc.xsc.network | https://explorer.xsc.network |
+| XSC Mainnet | 520 | https://datarpc1.xsc.pub | https://explorer.xsc.pub |
 | Local (Anvil) | 31337 | http://localhost:8545 | - |
+
+### XSC Chain Deployment
+
+**已部署合约** (Chain ID: 520):
+- **TokenFactory (Proxy)**: `0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B`
+- **TokenFactory (Implementation)**: `0xce4C94C6d88e7a8a1649752155A87341b49DdBC8`
+- **BasicERC20Template**: `0xC81EbBf532bB60A3618D09E06B6e50d7A33301d7`
+- **MintableERC20Template**: `0x6424559a49dCA52Eb3E420cC264da1388cACc56f`
+- **ERC20Template (Full Featured)**: `0x0EA7D0f4DC3195990CfCF42cD0817700D7FA4fa0`
+- **Deployer**: `0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9`
+- **Block Explorer**: https://explorer.xsc.pub/
+
+⚠️ **XSC 编译要求**:
+- EVM 版本必须为 `london` (XSC 不支持 Shanghai 及以后版本)
+- Solidity 版本: 0.8.20
+- 配置: `evm_version = "london"` 和 `via_ir = false`
 
 ### Environment Variables
 
@@ -370,7 +387,7 @@ DEPLOYMENT_SALT=0x1234567890abcdef
 |---------|----------------|------------------|----------|
 | Ethereum | `0x...` | `0x...` | ✅ |
 | BSC | `0x...` | `0x...` | ✅ |
-| XSC | `0x...` | `0x...` | ✅ |
+| XSC Mainnet | `0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B` | `0xC81EbBf532bB60A3618D09E06B6e50d7A33301d7` | ✅ |
 
 ### Testnet Deployments
 
