@@ -65,8 +65,7 @@ contract BasicERC20Template is
 
         // Initialize OpenZeppelin contracts
         __ERC20_init(tokenName, tokenSymbol);
-        __Ownable_init();
-        _transferOwnership(tokenOwner);
+        __Ownable_init(tokenOwner);
 
         // Store decimals
         _decimals = tokenDecimals;

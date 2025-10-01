@@ -1,0 +1,77 @@
+{
+  "network": "xsc",
+  "chainId": 520,
+  "deployment_attempt": "2025-09-29",
+  "status": "FAILED",
+  "issue": "Contract deployment transactions failed on XSC mainnet",
+  "successful_transactions": [
+    {
+      "hash": "0xb0e90c3a9d9e042447a54d11cf7d96a632c1d2bda92a202ec4dab264f13710b6",
+      "block": 39187381,
+      "gasUsed": 21932,
+      "description": "Template configuration transaction 1"
+    },
+    {
+      "hash": "0x745a22f5babba57cd7bf53b4593ac3189b861b7e5131383bfb6f9330a99d0424",
+      "block": 39187381,
+      "gasUsed": 21944,
+      "description": "Template configuration transaction 2"
+    },
+    {
+      "hash": "0xc51ed82398b1b44f7fc6f36d1b35911dff081a87ffd69645970543a794e47295",
+      "block": 39187381,
+      "gasUsed": 21944,
+      "description": "Template configuration transaction 3"
+    }
+  ],
+  "failed_transactions": [
+    {
+      "hash": "0xa79cc910e6eece4630f4ba67649a3b6371006bf2994f39227b081152b5be2815",
+      "contractAddress": "0x96b65A089Cd64Ad4C4703dBf31A7665b2E8dB7d2",
+      "gasUsed": 1637431,
+      "description": "MintableERC20Template deployment"
+    },
+    {
+      "hash": "0x9b44a7be5b9fe4c44d6b904fb4793e62b8750b67c047b7d2578ddc524ceacbaf",
+      "contractAddress": "0x142a43fdD18140B286429af21B323904dC245d28",
+      "gasUsed": 1478596,
+      "description": "BasicERC20Template deployment"
+    },
+    {
+      "hash": "0x3f3cc2fefa7bb3806ceac49f16c052f85bb44689efbed1d8bbc581a6f868605c",
+      "contractAddress": "0xa17937605EC60e1087D2CaFd576D152c126c5be8",
+      "gasUsed": 2357340,
+      "description": "ERC20Template (Full Featured) deployment"
+    },
+    {
+      "hash": "0x4637302f2971bbfeb17baa566cad9de68f1e1019b11e82cf6c3ea2a6ca2fe039",
+      "contractAddress": "0x83c919fE72DC0816CE5061d27fa981d067d4f101",
+      "gasUsed": 2903239,
+      "description": "TokenFactory implementation deployment"
+    },
+    {
+      "hash": "0x4507c569254420dc09e73b761769810d53b7bbef08208afd7043cf81e401a495",
+      "contractAddress": "0x417d7722d02646FeAe9812aE57234B0BFb6AC61b",
+      "gasUsed": 338135,
+      "description": "TokenFactory proxy deployment"
+    }
+  ],
+  "possible_causes": [
+    "XSC network may have contract size limits",
+    "Gas pricing mechanism differences",
+    "Network congestion or validation issues",
+    "Potential EVM compatibility issues"
+  ],
+  "next_steps": [
+    "Investigate XSC network documentation for deployment requirements",
+    "Try deploying with higher gas limits",
+    "Consider deploying contracts individually",
+    "Check XSC network status and guidelines"
+  ],
+  "deployer": "0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9",
+  "balance": "79.345 XSC (sufficient)",
+  "rpc_url": "https://datarpc1.xsc.pub/",
+  "block_explorer": "https://explorer.xsc.pub/",
+  "estimated_gas_used": "9085403",
+  "estimated_cost": "0.009085403 ETH"
+}

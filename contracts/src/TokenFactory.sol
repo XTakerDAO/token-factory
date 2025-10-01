@@ -4,8 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "./interfaces/ITokenFactory.sol";
@@ -106,8 +106,7 @@ contract TokenFactory is
         if (owner == address(0) || feeRecipient == address(0)) revert ZeroAddress();
         if (serviceFee > MAX_SERVICE_FEE) revert InvalidConfiguration();
 
-        __Ownable_init();
-        _transferOwnership(owner);
+        __Ownable_init(owner);
         __ReentrancyGuard_init();
         __Pausable_init();
         __UUPSUpgradeable_init();
@@ -479,18 +478,18 @@ contract TokenFactory is
 
     /**
      * @dev Generate deterministic salt for CREATE2 deployment
+     * Note: Removed block.timestamp to make address prediction reliable
      */
-    function _generateSalt(TokenConfig calldata config, address creator) 
-        internal 
-        view 
-        returns (bytes32) 
+    function _generateSalt(TokenConfig calldata config, address creator)
+        internal
+        view
+        returns (bytes32)
     {
         return keccak256(abi.encodePacked(
             creator,
             config.name,
             config.symbol,
-            _deploymentNonce,
-            block.timestamp
+            _deploymentNonce
         ));
     }
 

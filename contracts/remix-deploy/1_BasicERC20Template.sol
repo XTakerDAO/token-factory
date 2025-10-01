@@ -4,45 +4,80 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "./interfaces/IERC20Template.sol";
 
 /**
- * @title MintableERC20Template
- * @dev Mintable ERC20 token template with core minting features:
+ * @title IERC20Template
+ * @dev Interface for deployable ERC20 token templates with advanced features support
+ */
+interface IERC20Template {
+    // Events
+    event TokenInitialized(string name, string symbol, uint256 totalSupply, uint8 decimals, address owner);
+    event FeatureEnabled(string feature);
+
+    // Errors
+    error NotOwner();
+    error FeatureNotEnabled(string feature);
+    error InvalidAmount();
+    error ExceedsMaxSupply();
+    error AlreadyInitialized();
+    error InvalidConfiguration();
+    error TokenIsPaused();
+
+    // Core Factory Functions
+    function initialize(
+        string calldata tokenName,
+        string calldata tokenSymbol,
+        uint256 totalSupply,
+        uint8 tokenDecimals,
+        address tokenOwner,
+        bool mintable,
+        bool burnable,
+        bool pausable,
+        bool capped,
+        uint256 maxSupply
+    ) external;
+
+    // Feature Query Functions
+    function isMintable() external view returns (bool);
+    function isBurnable() external view returns (bool);
+    function isPausable() external view returns (bool);
+    function isCapped() external view returns (bool);
+    function getMaxSupply() external view returns (uint256);
+    function getFeatureFlags() external view returns (bool mintable, bool burnable, bool pausable, bool capped);
+    function isInitialized() external view returns (bool);
+
+    // Advanced Features
+    function mint(address to, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
+    function pause() external;
+    function unpause() external;
+
+    // Proxy Utility Functions
+    function getImplementation() external view returns (address);
+    function isProxy() external view returns (bool);
+}
+
+/**
+ * @title BasicERC20Template
+ * @dev Basic ERC20 token template with minimal features:
  *      - Standard ERC20 functionality (transfer, approve, etc.)
- *      - Mintable: Owner can mint new tokens
- *      - Optional supply cap enforcement
- *      - Ownable for access control
+ *      - Ownable for basic access control
+ *      - Fixed supply (no minting capability)
  *      - No burning capability
  *      - No pause capability
- *      - Reentrancy protection for minting
+ *      - No supply cap (unlimited if minting was enabled)
  *
- * This template is optimized for tokens that need controlled supply expansion
- * while maintaining gas efficiency and security.
+ * This template is optimized for simple tokens that only need basic ERC20 features.
+ * It uses minimal gas and storage while maintaining full ERC20 compatibility.
  */
-contract MintableERC20Template is
+contract BasicERC20Template is
     Initializable,
     ERC20Upgradeable,
     OwnableUpgradeable,
-    ReentrancyGuardUpgradeable,
     IERC20Template
 {
-    // Feature flags
-    bool private _capped;
-    uint256 private _maxSupply;
     uint8 private _decimals;
-
-    // Constants for validation
-    uint256 private constant MAX_SUPPLY_LIMIT = type(uint256).max;
-
-    /**
-     * @dev Modifier to validate amounts
-     */
-    modifier validAmount(uint256 amount) {
-        if (amount == 0) revert InvalidAmount();
-        _;
-    }
 
     /**
      * @dev Constructor disabled for proxy pattern
@@ -53,17 +88,7 @@ contract MintableERC20Template is
     }
 
     /**
-     * @dev Initialize the mintable token with configuration
-     * @param tokenName Token name
-     * @param tokenSymbol Token symbol
-     * @param totalSupply Initial token supply
-     * @param tokenDecimals Number of decimals
-     * @param tokenOwner Initial owner address
-     * @param mintable Not used (always true for mintable template)
-     * @param burnable Not used in mintable template (always false)
-     * @param pausable Not used in mintable template (always false)
-     * @param capped Enable supply cap
-     * @param maxSupply Maximum token supply (if capped)
+     * @dev Initialize the basic token with configuration
      */
     function initialize(
         string calldata tokenName,
@@ -71,64 +96,57 @@ contract MintableERC20Template is
         uint256 totalSupply,
         uint8 tokenDecimals,
         address tokenOwner,
-        bool mintable,     // Ignored (always true)
-        bool burnable,     // Ignored in mintable template
-        bool pausable,     // Ignored in mintable template
-        bool capped,       // Used for supply cap
-        uint256 maxSupply  // Used if capped is true
+        bool mintable,     // Ignored in basic template
+        bool burnable,     // Ignored in basic template
+        bool pausable,     // Ignored in basic template
+        bool capped,       // Ignored in basic template
+        uint256 maxSupply  // Ignored in basic template
     ) external override initializer {
-        // Validate configuration
-        _validateInitializationConfig(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner, capped, maxSupply);
+        // Validate configuration (simplified for basic template)
+        {
+            uint256 nameLen = bytes(tokenName).length;
+            require(nameLen > 0, "Name too short");
+            require(nameLen <= 50, "Name too long");
+        }
+        {
+            uint256 symbolLen = bytes(tokenSymbol).length;
+            require(symbolLen > 0, "Symbol too short");
+            require(symbolLen <= 10, "Symbol too long");
+        }
+        require(totalSupply > 0, "Invalid total supply");
+        require(tokenDecimals <= 18, "Invalid decimals");
+        require(tokenOwner != address(0), "Invalid owner");
 
         // Initialize OpenZeppelin contracts
         __ERC20_init(tokenName, tokenSymbol);
         __Ownable_init(tokenOwner);
-        __ReentrancyGuard_init();
 
-        // Store configuration
+        // Store decimals
         _decimals = tokenDecimals;
-        _capped = capped;
-        if (capped) {
-            _maxSupply = maxSupply;
-        }
 
-        // Mint initial supply to owner
+        // Mint initial supply to owner (this is the only minting that will ever happen)
         _mint(tokenOwner, totalSupply);
 
-        // Emit events
+        // Emit initialization event
         emit TokenInitialized(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner);
-        emit FeatureEnabled("mintable");
-
-        if (capped) {
-            emit FeatureEnabled("capped");
-        }
     }
 
+    // ==================== NOT SUPPORTED FUNCTIONS ====================
+    // These functions are required by IERC20Template but not supported in basic template
+
     /**
-     * @dev Mint tokens to address (owner only)
+     * @dev Mint function - NOT SUPPORTED in basic template
      */
     function mint(address to, uint256 amount)
         external
         override
-        onlyOwner
-        validAmount(amount)
-        nonReentrant
+        pure
     {
-        if (to == address(0)) revert InvalidConfiguration();
-
-        // Check supply cap if enabled
-        if (_capped && totalSupply() + amount > _maxSupply) {
-            revert ExceedsMaxSupply();
-        }
-
-        _mint(to, amount);
+        revert FeatureNotEnabled("mintable");
     }
 
-    // ==================== NOT SUPPORTED FUNCTIONS ====================
-    // These functions are required by IERC20Template but not supported in mintable template
-
     /**
-     * @dev Burn function - NOT SUPPORTED in mintable template
+     * @dev Burn function - NOT SUPPORTED in basic template
      */
     function burn(uint256 amount)
         public
@@ -139,7 +157,7 @@ contract MintableERC20Template is
     }
 
     /**
-     * @dev Burn from function - NOT SUPPORTED in mintable template
+     * @dev Burn from function - NOT SUPPORTED in basic template
      */
     function burnFrom(address account, uint256 amount)
         public
@@ -150,7 +168,7 @@ contract MintableERC20Template is
     }
 
     /**
-     * @dev Pause function - NOT SUPPORTED in mintable template
+     * @dev Pause function - NOT SUPPORTED in basic template
      */
     function pause()
         external
@@ -161,7 +179,7 @@ contract MintableERC20Template is
     }
 
     /**
-     * @dev Unpause function - NOT SUPPORTED in mintable template
+     * @dev Unpause function - NOT SUPPORTED in basic template
      */
     function unpause()
         external
@@ -174,50 +192,50 @@ contract MintableERC20Template is
     // ==================== VIEW FUNCTIONS ====================
 
     /**
-     * @dev Check if minting is enabled - always true for mintable template
+     * @dev Check if minting is enabled - always false for basic template
      */
     function isMintable() external pure override returns (bool) {
-        return true;
+        return false;
     }
 
     /**
-     * @dev Check if burning is enabled - always false for mintable template
+     * @dev Check if burning is enabled - always false for basic template
      */
     function isBurnable() external pure override returns (bool) {
         return false;
     }
 
     /**
-     * @dev Check if pausing is enabled - always false for mintable template
+     * @dev Check if pausing is enabled - always false for basic template
      */
     function isPausable() external pure override returns (bool) {
         return false;
     }
 
     /**
-     * @dev Check if supply is capped
+     * @dev Check if supply is capped - always false for basic template
      */
-    function isCapped() external view override returns (bool) {
-        return _capped;
+    function isCapped() external pure override returns (bool) {
+        return false;
     }
 
     /**
-     * @dev Get maximum supply (if capped)
+     * @dev Get maximum supply - always 0 for basic template (no cap)
      */
-    function getMaxSupply() external view override returns (uint256) {
-        return _maxSupply;
+    function getMaxSupply() external pure override returns (uint256) {
+        return 0; // No cap
     }
 
     /**
-     * @dev Get all feature flags at once
+     * @dev Get all feature flags at once - all false for basic template
      */
-    function getFeatureFlags() external view override returns (
+    function getFeatureFlags() external pure override returns (
         bool mintable,
         bool burnable,
         bool pausable,
         bool capped
     ) {
-        return (true, false, false, _capped);
+        return (false, false, false, false);
     }
 
     /**
@@ -258,7 +276,7 @@ contract MintableERC20Template is
     }
 
     /**
-     * @dev Paused function - always false for mintable template (no pause capability)
+     * @dev Paused function - always false for basic template (no pause capability)
      */
     function paused() public pure returns (bool) {
         return false;
@@ -311,9 +329,7 @@ contract MintableERC20Template is
         string calldata tokenSymbol,
         uint256 totalSupply,
         uint8 tokenDecimals,
-        address tokenOwner,
-        bool capped,
-        uint256 maxSupply
+        address tokenOwner
     ) private pure {
         // Validate name
         if (bytes(tokenName).length == 0 || bytes(tokenName).length > 50) {
@@ -339,19 +355,6 @@ contract MintableERC20Template is
         if (tokenOwner == address(0)) {
             revert InvalidConfiguration();
         }
-
-        // Validate capped configuration
-        if (capped) {
-            if (maxSupply == 0) {
-                revert InvalidConfiguration();
-            }
-            if (maxSupply < totalSupply) {
-                revert InvalidConfiguration();
-            }
-            if (maxSupply > MAX_SUPPLY_LIMIT) {
-                revert InvalidConfiguration();
-            }
-        }
     }
 
     /**
@@ -359,5 +362,5 @@ contract MintableERC20Template is
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[46] private __gap;
+    uint256[48] private __gap;
 }

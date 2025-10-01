@@ -1,11 +1,63 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "./interfaces/IERC20Template.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/access/OwnableUpgradeable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/proxy/utils/Initializable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/utils/ReentrancyGuardUpgradeable.sol";
+
+/**
+ * @title IERC20Template
+ * @dev Interface for deployable ERC20 token templates with advanced features support
+ */
+interface IERC20Template {
+    // Events
+    event TokenInitialized(string name, string symbol, uint256 totalSupply, uint8 decimals, address owner);
+    event FeatureEnabled(string feature);
+
+    // Errors
+    error NotOwner();
+    error FeatureNotEnabled(string feature);
+    error InvalidAmount();
+    error ExceedsMaxSupply();
+    error AlreadyInitialized();
+    error InvalidConfiguration();
+    error TokenIsPaused();
+
+    // Core Factory Functions
+    function initialize(
+        string calldata tokenName,
+        string calldata tokenSymbol,
+        uint256 totalSupply,
+        uint8 tokenDecimals,
+        address tokenOwner,
+        bool mintable,
+        bool burnable,
+        bool pausable,
+        bool capped,
+        uint256 maxSupply
+    ) external;
+
+    // Feature Query Functions
+    function isMintable() external view returns (bool);
+    function isBurnable() external view returns (bool);
+    function isPausable() external view returns (bool);
+    function isCapped() external view returns (bool);
+    function getMaxSupply() external view returns (uint256);
+    function getFeatureFlags() external view returns (bool mintable, bool burnable, bool pausable, bool capped);
+    function isInitialized() external view returns (bool);
+
+    // Advanced Features
+    function mint(address to, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
+    function pause() external;
+    function unpause() external;
+
+    // Proxy Utility Functions
+    function getImplementation() external view returns (address);
+    function isProxy() external view returns (bool);
+}
 
 /**
  * @title MintableERC20Template
@@ -54,16 +106,6 @@ contract MintableERC20Template is
 
     /**
      * @dev Initialize the mintable token with configuration
-     * @param tokenName Token name
-     * @param tokenSymbol Token symbol
-     * @param totalSupply Initial token supply
-     * @param tokenDecimals Number of decimals
-     * @param tokenOwner Initial owner address
-     * @param mintable Not used (always true for mintable template)
-     * @param burnable Not used in mintable template (always false)
-     * @param pausable Not used in mintable template (always false)
-     * @param capped Enable supply cap
-     * @param maxSupply Maximum token supply (if capped)
      */
     function initialize(
         string calldata tokenName,
@@ -77,8 +119,24 @@ contract MintableERC20Template is
         bool capped,       // Used for supply cap
         uint256 maxSupply  // Used if capped is true
     ) external override initializer {
-        // Validate configuration
-        _validateInitializationConfig(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner, capped, maxSupply);
+        // Validate configuration (inline for gas efficiency)
+        {
+            uint256 nameLen = bytes(tokenName).length;
+            require(nameLen > 0, "Name too short");
+            require(nameLen <= 50, "Name too long");
+        }
+        {
+            uint256 symbolLen = bytes(tokenSymbol).length;
+            require(symbolLen > 0, "Symbol too short");
+            require(symbolLen <= 10, "Symbol too long");
+        }
+        require(totalSupply > 0, "Invalid total supply");
+        require(tokenDecimals <= 18, "Invalid decimals");
+        require(tokenOwner != address(0), "Invalid owner");
+        if (capped) {
+            require(maxSupply > 0, "Max supply must be positive");
+            require(maxSupply >= totalSupply, "Max supply too low");
+        }
 
         // Initialize OpenZeppelin contracts
         __ERC20_init(tokenName, tokenSymbol);

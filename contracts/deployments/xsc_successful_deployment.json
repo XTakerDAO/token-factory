@@ -1,0 +1,91 @@
+{
+  "network": "xsc",
+  "chainId": 520,
+  "deployment_date": "2025-09-29",
+  "status": "SUCCESS",
+  "description": "TokenFactory successfully deployed to XSC mainnet using legacy deployment script",
+  "contracts": {
+    "tokenFactory": {
+      "proxy": "0x022EC0B5f83Bf885dbbE74C02Cd3Fe77E2F379C6",
+      "implementation": "0x10Db4D6473a393259D2eF9d2B2524C7573f71ac9",
+      "owner": "0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9",
+      "feeRecipient": "0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9",
+      "serviceFee": "0.01 XSC"
+    },
+    "templates": {
+      "basicERC20": "0x79C9A3e1DE51F6a06dFE097Eee1F202F133C02E1",
+      "mintableERC20": "0xFF61527Bd80f286cC6DE8D36205aFda043Cb1e1b",
+      "fullFeaturedERC20": "0x248eCE8f6aC5997C66e7D6439659F464634fDa2a"
+    }
+  },
+  "deployment_config": {
+    "gasStrategy": "legacy",
+    "gasPrice": "20 gwei",
+    "solidityVersion": "0.8.20",
+    "compatibilityMode": "pre-Shanghai EVM"
+  },
+  "verification": {
+    "allContractsDeployed": true,
+    "templatesConfigured": 3,
+    "factoryInitialized": true,
+    "ownershipCorrect": true
+  },
+  "next_steps": [
+    "Create tokens using the deployed factory",
+    "Test all three template types",
+    "Verify contract source code on XSC Explorer",
+    "Monitor gas costs for token creation"
+  ],
+  "deployment_script": "DeployXSCLegacy.s.sol",
+  "rpc_url": "https://datarpc1.xsc.pub/",
+  "block_explorer": "https://explorer.xsc.pub/",
+  "deployer": "0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9",
+  "total_gas_used": "~6M gas",
+  "deployment_cost": "~0.12 XSC"
+}
+
+  === Simple XSC Deployment ===
+  Deployer: 0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9
+  Chain ID: 520
+  Deploying BasicERC20Template...
+  BasicERC20Template: 0x19e0BAC789EBEcf9964EDd60f2BB927dF074DdA6
+  Deploying MintableERC20Template...
+  MintableERC20Template: 0x13a63538B32BdF70F885Ff10363Fbd6a80B96DC3
+  Deploying ERC20Template...
+  ERC20Template: 0x881656e2d4610D3fC1aa59fee7A65af04Ca6dA3d
+  Deploying TokenFactory implementation...
+  TokenFactory implementation: 0x8De08262566b4500C4Ea831938A022b610b36555
+  Deploying proxy...
+  TokenFactory proxy: 0x6E76D047806B2c7df2a0f0c09B854761CdFB83F6
+  Adding BasicERC20Template...
+  Adding MintableERC20Template...
+  Adding ERC20Template...
+  === Deployment Complete ===
+  TokenFactory: 0x6E76D047806B2c7df2a0f0c09B854761CdFB83F6
+  BasicERC20Template: 0x19e0BAC789EBEcf9964EDd60f2BB927dF074DdA6
+  MintableERC20Template: 0x13a63538B32BdF70F885Ff10363Fbd6a80B96DC3
+  ERC20Template: 0x881656e2d4610D3fC1aa59fee7A65af04Ca6dA3d
+
+
+  === Simple XSC Deployment ===
+  Deployer: 0xB098dB4Ac5aD1FccbEc554d3e8C5372C8190d3C9
+  Chain ID: 520
+  Deploying BasicERC20Template...
+  BasicERC20Template: 0xC81EbBf532bB60A3618D09E06B6e50d7A33301d7
+  Deploying MintableERC20Template...
+  MintableERC20Template: 0x6424559a49dCA52Eb3E420cC264da1388cACc56f
+  Deploying ERC20Template...
+  ERC20Template: 0x0EA7D0f4DC3195990CfCF42cD0817700D7FA4fa0
+  Deploying TokenFactory implementation...
+  TokenFactory implementation: 0xce4C94C6d88e7a8a1649752155A87341b49DdBC8
+  Deploying proxy...
+  TokenFactory proxy: 0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B
+  Adding BasicERC20Template...
+  Adding MintableERC20Template...
+  Adding ERC20Template...
+  === Deployment Complete ===
+  TokenFactory: 0x3f41Bf6891c4BAF50327D73e0CE3a4bB563f2f1B
+  BasicERC20Template: 0xC81EbBf532bB60A3618D09E06B6e50d7A33301d7
+  MintableERC20Template: 0x6424559a49dCA52Eb3E420cC264da1388cACc56f
+  ERC20Template: 0x0EA7D0f4DC3195990CfCF42cD0817700D7FA4fa0
+

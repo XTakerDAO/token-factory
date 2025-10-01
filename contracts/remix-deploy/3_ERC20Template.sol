@@ -1,13 +1,65 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "./interfaces/IERC20Template.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/access/OwnableUpgradeable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/proxy/utils/Initializable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/v5.0.0/contracts/utils/ReentrancyGuardUpgradeable.sol";
+
+/**
+ * @title IERC20Template
+ * @dev Interface for deployable ERC20 token templates with advanced features support
+ */
+interface IERC20Template {
+    // Events
+    event TokenInitialized(string name, string symbol, uint256 totalSupply, uint8 decimals, address owner);
+    event FeatureEnabled(string feature);
+
+    // Errors
+    error NotOwner();
+    error FeatureNotEnabled(string feature);
+    error InvalidAmount();
+    error ExceedsMaxSupply();
+    error AlreadyInitialized();
+    error InvalidConfiguration();
+    error TokenIsPaused();
+
+    // Core Factory Functions
+    function initialize(
+        string calldata tokenName,
+        string calldata tokenSymbol,
+        uint256 totalSupply,
+        uint8 tokenDecimals,
+        address tokenOwner,
+        bool mintable,
+        bool burnable,
+        bool pausable,
+        bool capped,
+        uint256 maxSupply
+    ) external;
+
+    // Feature Query Functions
+    function isMintable() external view returns (bool);
+    function isBurnable() external view returns (bool);
+    function isPausable() external view returns (bool);
+    function isCapped() external view returns (bool);
+    function getMaxSupply() external view returns (uint256);
+    function getFeatureFlags() external view returns (bool mintable, bool burnable, bool pausable, bool capped);
+    function isInitialized() external view returns (bool);
+
+    // Advanced Features
+    function mint(address to, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
+    function pause() external;
+    function unpause() external;
+
+    // Proxy Utility Functions
+    function getImplementation() external view returns (address);
+    function isProxy() external view returns (bool);
+}
 
 /**
  * @title ERC20Template
@@ -17,19 +69,19 @@ import "./interfaces/IERC20Template.sol";
  *      - Pausable: All transfers can be paused
  *      - Capped: Maximum supply can be enforced
  *      - Ownable: Access control for privileged functions
- * 
+ *
  * Security Features:
  *      - Reentrancy protection
  *      - Input validation
  *      - Feature flag enforcement
  *      - Safe math operations
- * 
+ *
  * Gas Optimized:
  *      - Minimal storage usage
  *      - Efficient modifiers
  *      - Batch operations support
  */
-contract ERC20Template is 
+contract ERC20Template is
     Initializable,
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
@@ -94,16 +146,6 @@ contract ERC20Template is
 
     /**
      * @dev Initialize the token with configuration
-     * @param tokenName Token name
-     * @param tokenSymbol Token symbol
-     * @param totalSupply Initial token supply
-     * @param tokenDecimals Number of decimals
-     * @param tokenOwner Initial owner address
-     * @param mintable Enable minting capability
-     * @param burnable Enable burning capability
-     * @param pausable Enable pause capability
-     * @param capped Enable supply cap
-     * @param maxSupply Maximum token supply (if capped)
      */
     function initialize(
         string calldata tokenName,
@@ -117,8 +159,24 @@ contract ERC20Template is
         bool capped,
         uint256 maxSupply
     ) external override initializer {
-        // Validate configuration
-        _validateInitializationConfig(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner, capped, maxSupply);
+        // Validate configuration (inline for gas efficiency)
+        {
+            uint256 nameLen = bytes(tokenName).length;
+            require(nameLen > 0, "Name too short");
+            require(nameLen <= 50, "Name too long");
+        }
+        {
+            uint256 symbolLen = bytes(tokenSymbol).length;
+            require(symbolLen > 0, "Symbol too short");
+            require(symbolLen <= 10, "Symbol too long");
+        }
+        require(totalSupply > 0, "Invalid total supply");
+        require(tokenDecimals <= 77, "Invalid decimals");
+        require(tokenOwner != address(0), "Invalid owner");
+        if (capped) {
+            require(maxSupply > 0, "Max supply must be positive");
+            require(maxSupply >= totalSupply, "Max supply too low");
+        }
 
         // Initialize OpenZeppelin contracts
         __ERC20_init(tokenName, tokenSymbol);
@@ -148,7 +206,7 @@ contract ERC20Template is
 
         // Emit events
         emit TokenInitialized(tokenName, tokenSymbol, totalSupply, tokenDecimals, tokenOwner);
-        
+
         if (mintable) emit FeatureEnabled("mintable");
         if (burnable) emit FeatureEnabled("burnable");
         if (pausable) emit FeatureEnabled("pausable");
@@ -158,16 +216,16 @@ contract ERC20Template is
     /**
      * @dev Mint tokens to address (owner only)
      */
-    function mint(address to, uint256 amount) 
-        external 
-        override 
-        onlyTokenOwner 
+    function mint(address to, uint256 amount)
+        external
+        override
+        onlyTokenOwner
         whenFeatureEnabled("mintable")
         validAmount(amount)
-        nonReentrant 
+        nonReentrant
     {
         if (to == address(0)) revert InvalidConfiguration();
-        
+
         // Check supply cap
         if (_features.capped && totalSupply() + amount > _maxSupply) {
             revert ExceedsMaxSupply();
@@ -179,8 +237,8 @@ contract ERC20Template is
     /**
      * @dev Burn tokens from caller's balance
      */
-    function burn(uint256 amount) 
-        public 
+    function burn(uint256 amount)
+        public
         override(ERC20BurnableUpgradeable, IERC20Template)
         whenFeatureEnabled("burnable")
         validAmount(amount)
@@ -191,8 +249,8 @@ contract ERC20Template is
     /**
      * @dev Burn tokens from account with allowance
      */
-    function burnFrom(address account, uint256 amount) 
-        public 
+    function burnFrom(address account, uint256 amount)
+        public
         override(ERC20BurnableUpgradeable, IERC20Template)
         whenFeatureEnabled("burnable")
         validAmount(amount)
@@ -203,11 +261,11 @@ contract ERC20Template is
     /**
      * @dev Pause all token transfers (owner only)
      */
-    function pause() 
-        external 
-        override 
-        onlyTokenOwner 
-        whenFeatureEnabled("pausable") 
+    function pause()
+        external
+        override
+        onlyTokenOwner
+        whenFeatureEnabled("pausable")
     {
         _pause();
         // The standard Paused(address) event is emitted by OpenZeppelin's _pause()
@@ -216,11 +274,11 @@ contract ERC20Template is
     /**
      * @dev Unpause token transfers (owner only)
      */
-    function unpause() 
-        external 
-        override 
-        onlyTokenOwner 
-        whenFeatureEnabled("pausable") 
+    function unpause()
+        external
+        override
+        onlyTokenOwner
+        whenFeatureEnabled("pausable")
     {
         _unpause();
         // The standard Unpaused(address) event is emitted by OpenZeppelin's _unpause()
@@ -229,10 +287,10 @@ contract ERC20Template is
     /**
      * @dev Transfer ownership (owner only)
      */
-    function transferOwnership(address newOwner) 
-        public 
-        override(OwnableUpgradeable) 
-        onlyTokenOwner 
+    function transferOwnership(address newOwner)
+        public
+        override(OwnableUpgradeable)
+        onlyTokenOwner
     {
         if (newOwner == address(0)) revert InvalidConfiguration();
         super.transferOwnership(newOwner);
@@ -241,10 +299,10 @@ contract ERC20Template is
     /**
      * @dev Renounce ownership (owner only)
      */
-    function renounceOwnership() 
-        public 
-        override(OwnableUpgradeable) 
-        onlyTokenOwner 
+    function renounceOwnership()
+        public
+        override(OwnableUpgradeable)
+        onlyTokenOwner
     {
         super.renounceOwnership();
     }

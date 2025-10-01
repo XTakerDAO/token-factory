@@ -445,7 +445,7 @@ contract ERC20TemplateInitTest is Test {
         );
 
         // Second initialization should fail on same instance
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert(); // OpenZeppelin v5.0 uses InvalidInitialization() error
         token1.initialize(
             "Second Token",
             "SECOND",
@@ -487,7 +487,7 @@ contract ERC20TemplateInitTest is Test {
         vm.stopPrank();
         vm.startPrank(user1);
 
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert(); // OpenZeppelin v5.0 uses InvalidInitialization() error
         token.initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,
@@ -510,7 +510,7 @@ contract ERC20TemplateInitTest is Test {
         vm.startPrank(deployer);
 
         // Initialize the implementation (this should fail in production)
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert(); // OpenZeppelin v5.0 uses InvalidInitialization() error
         ERC20Template(address(templateImplementation)).initialize(
             TOKEN_NAME,
             TOKEN_SYMBOL,

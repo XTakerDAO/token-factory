@@ -3,6 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.20"
+evm_version = "london"
 optimizer = true
 optimizer_runs = 200
 via_ir = true
@@ -11,18 +12,21 @@ verbosity = 2
 # Multi-chain deployment settings
 [profile.mainnet]
 solc_version = "0.8.21"
+evm_version = "london"
 optimizer = true
 optimizer_runs = 1000
 via_ir = true
 
 [profile.testnet]
 solc_version = "0.8.21"
+evm_version = "london"
 optimizer = true
 optimizer_runs = 200
 
 # XSC Network compatibility (pre-Shanghai EVM)
 [profile.xsc]
-solc_version = "0.8.19"  # Pre-Shanghai compatible
+solc_version = "0.8.20"  # Use same version as default
+evm_version = "london"
 optimizer = true
 optimizer_runs = 200
 via_ir = false
