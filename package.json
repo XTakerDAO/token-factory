@@ -24,8 +24,7 @@
     "inspect": "cd contracts && forge inspect",
     "doc": "cd contracts && forge doc",
     "slither": "cd contracts && slither .",
-    "analyze:gas": "cd contracts && ./scripts/gas-benchmark.sh",
-    "prepare": "husky install || true"
+    "analyze:gas": "cd contracts && ./scripts/gas-benchmark.sh"
   },
   "repository": {
     "type": "git",
@@ -50,11 +49,6 @@
     "url": "https://github.com/your-org/token-factory/issues"
   },
   "homepage": "https://github.com/your-org/token-factory#readme",
-  "devDependencies": {
-    "husky": "^8.0.3",
-    "@commitlint/cli": "^17.0.0",
-    "@commitlint/config-conventional": "^17.0.0"
-  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
