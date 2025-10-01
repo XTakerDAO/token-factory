@@ -19,7 +19,7 @@
     "deploy:sepolia": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url sepolia --verify",
     "deploy:mainnet": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url mainnet --verify",
     "deploy:bsc-testnet": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url bsc_testnet --verify",
-    "deploy:xsc": "cd contracts && forge script script/Deploy.s.sol --broadcast --rpc-url xsc --verify",
+    "deploy:xsc": "cd contracts && forge script script/DeploySimpleXSC.s.sol --legacy --broadcast --rpc-url https://datarpc1.xsc.pub/ --private-key $PRIVATE_KEY --verify",
     "verify": "cd contracts && forge verify-contract",
     "inspect": "cd contracts && forge inspect",
     "doc": "cd contracts && forge doc",
